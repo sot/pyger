@@ -196,7 +196,7 @@ def plot_dwells1(dwells1, med_dwells1):
     plt.clf()
     plt.plot(dwells1['pitch'], dwells1['dur'], '.', markersize=1.0)
     plt.plot(med_dwells1['pitch'], med_dwells1['dur'])
-    plt.show()
+    # plt.show()
 
 def plot_dwells2(sim_outputs):
     plt.figure(2, figsize=(6,4))
