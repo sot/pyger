@@ -1,0 +1,26 @@
+{
+    "minus_z": {
+        "state_vals": [
+            "pitch"
+        ], 
+        "msids": [
+            "tcylaft6", 
+            "tcylfmzm", 
+            "tephin", 
+            "tfssbkt1", 
+            "tmzp_my"
+        ]
+    }, 
+    "psmc": {
+        "state_vals": [
+            "pitch", 
+            "ccd_count", 
+            "clocking", 
+            "vid_board"
+        ], 
+        "msids": [
+            "1pdeaat", 
+            "1pin1at"
+        ]
+    }
+}
