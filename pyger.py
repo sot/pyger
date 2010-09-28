@@ -17,6 +17,8 @@ import nmass
 import characteristics
 import twodof
 
+constraint_models = json.load(open('constraint_models.json'))
+
 def CtoF(cs):
     try:
         return [c * 1.8 + 32 for c in cs]
@@ -53,10 +55,14 @@ def get_options():
                       default=93.0,
                       type='float',
                       help="TCYLAFT6 planning limit")
-    parser.add_option("--1pdeaat",
+    parser.add_option("--pdeaat",
                       default=52.5,
                       type='float',
                       help="1PDEAAT planning limit")
+    parser.add_option("--n-ccd",
+                      default=6,
+                      type='int',
+                      help="Number of ACIS CCDs")
     parser.add_option("--max-dwell-ksec",
                       default=170.,
                       type='float',
@@ -73,6 +79,13 @@ def get_options():
 
 
 class ConstraintModel(object):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+        self.sim_inputs = sim_inputs[self.name]
+        self.limits = limits
+        self.msids = constraint_models[self.name]['msids']
+        self.state_cols = constraint_models[self.name]['state_cols']
+        self.max_dwell_ksec = max_dwell_ksec
+
     def calc_dwell1_T0s(self, start):
         """Calculate the starting temperature vectors for the ensemble of pitch
         profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
@@ -104,12 +117,7 @@ class ConstraintModel(object):
         print 'Simulating {0} {1} dwells ...'.format(len(i_sims), len(pitches1))
         for i_sim, pitch1 in zip(i_sims, pitches1):
             sim_input = sim_inputs[i_sim]
-            states1 = np.rec.fromrecords(((start.secs, stop.secs, pitch1),),
-                                         names=('tstart', 'tstop', 'pitch'))
-
-            #Ts = nmass.calc_model(self.pars, states1, times, sim_input['dwell1_T0s'], self.msids, 
-            #                      cache=True, max_dwell_ksec=self.max_dwell_ksec)
-
+            states1 = self.get_states1(start, stop, pitch1)
             Ts = self.calc_model(states1, times, sim_input['dwell1_T0s'])
 
             ok = np.ones(len(times), np.bool)
@@ -152,28 +160,87 @@ class ConstraintModel(object):
                                                       ('T1_90', np.float64, (n_msids,)),
                                                       ])
 
-    def plot_dwells1(self):
-        plt.figure(1, figsize=(6,4))
-        plt.clf()
-        plt.plot(self.dwells1['pitch'], self.dwells1['dur'], '.', markersize=1.0)
-        plt.plot(self.dwell1_stats['pitch'], self.dwell1_stats['dur50'])
-        plt.plot(self.dwell1_stats['pitch'], self.dwell1_stats['dur90'])
-
 
 class ConstraintMinusZ(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
         self.name = 'minus_z'
         self.pars = json.load(open('minusz/pars_minusz.json'))
-        self.sim_inputs = sim_inputs[self.name]
-        self.limits = limits
-        self.max_dwell_ksec = max_dwell_ksec
-        self.msids = sorted(self.sim_inputs[0]['msids'])
+        ConstraintModel.__init__(self, sim_inputs, limits, max_dwell_ksec)
         
     def calc_model(self, states, times, T0s, state_only=False, cache=True):
         Ts = nmass.calc_model(self.pars, states, times, T0s, self.msids, cache=cache,
                               state_only=state_only, max_dwell_ksec=self.max_dwell_ksec)
         return Ts
 
+    def get_states1(self, start, stop, pitch1):
+        return np.rec.fromrecords(((start.secs, stop.secs, pitch1),),
+                                  names=('tstart', 'tstop', 'pitch'))
+
+class ConstraintPSMC(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+        self.name = 'psmc'
+        self.pars = characteristics.model_par
+        self.n_ccd = n_ccd
+        self.powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
+        ConstraintModel.__init__(self, sim_inputs, limits, max_dwell_ksec)
+        
+    def calc_model(self, states, times, T0s, state_only=False, cache=False):
+        pin0 = T0s[0]
+        dea0 = T0s[1]
+        T_pin, T_dea = twodof.calc_twodof_model(states, pin0, dea0, times,
+                                                par=self.pars, dt=1000)
+        return np.vstack([T_pin, T_dea])
+
+    def get_states1(self, start, stop, pitch1):
+        states = [(start.secs, stop.secs, self.powers[self.n_ccd, 1, 1], pitch1, 75000)]
+        return np.rec.fromrecords(states,
+                                  names=('tstart', 'tstop', 'power', 'pitch', 'simpos'))
+
+    def calc_dwell1_T0s(self, start):
+        """Calculate the starting temperature vectors for the ensemble of pitch
+        profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
+        values."""
+
+        print 'Using telemetry for PSMC start temps assuming no time evolution'
+        for sim_input in self.sim_inputs:
+            sim_input['dwell1_T0s'] = [sim_input['T1s']['1pin1at'],
+                                       sim_input['T1s']['1pdeaat']]
+
+def plot_dwells1(dwells1, dwell1_stats):
+    plt.figure(1, figsize=(6,4))
+    plt.clf()
+    plt.plot(dwells1['pitch'], dwells1['dur'] / 1000., '.', markersize=1.3)
+    plt.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')
+    plt.plot(dwell1_stats['pitch'], dwell1_stats['dur90'] / 1000., '-m')
+    plt.grid()
+    plt.xlabel('Pitch (deg)')
+    plt.ylabel('Dwell (ksec)')
+    plt.show()
+
+def calc_dwell1_stats(constr_mods, pitch_bins, n_sim):
+    dwells1 = []
+    for i in range(n_sim):
+        min_cm = min(constr_mods, key=lambda x: x.dwells1['dur'][i])
+        dwells1.append((min_cm.dwells1['pitch'][i], min_cm.dwells1['dur'][i]))
+    dwells1 = np.rec.fromrecords(dwells1, names=('pitch', 'dur'))
+
+    dwell1_stats = []
+    for p0, p1 in zip(pitch_bins[:-1], pitch_bins[1:]):
+        ok = (dwells1['pitch'] >= p0) & (dwells1['pitch'] < p1)
+        dwells_ok = dwells1[ok]
+        dwells_ok.sort(order='dur')
+        n_dwells_ok = len(dwells_ok)
+        dwell50 = dwells_ok[int(n_dwells_ok * 0.5)]
+        dwell90 = dwells_ok[int(n_dwells_ok * 0.9)]
+        dwell1_stats.append(((p0 + p1) / 2,
+                             dwell50['dur'], dwell90['dur'],
+                             ))
+    dwell1_stats = np.rec.fromrecords(dwell1_stats,
+                                      dtype=[('pitch', np.float64),
+                                             ('dur50', np.float64),
+                                             ('dur90', np.float64),
+                                             ])
+    return dwells1, dwell1_stats
 
 if __name__ == '__main__':
     opt, args = get_options()
@@ -193,4 +260,15 @@ if __name__ == '__main__':
     minus_z.calc_dwell1_T0s(start)
     minus_z.calc_dwells1(start, stop, times, pitches1, i_sims)
     minus_z.calc_dwell1_stats(pitch_bins)
-    minus_z.plot_dwells1()
+
+    psmc = ConstraintPSMC(sim_inputs,
+                          limits={'1pdeaat': opt.pdeaat},
+                          max_dwell_ksec=opt.max_dwell_ksec,
+                          n_ccd=opt.n_ccd)
+    psmc.calc_dwell1_T0s(start)
+    psmc.calc_dwells1(start, stop, times, pitches1, i_sims)
+    psmc.calc_dwell1_stats(pitch_bins)
+
+    dwells1, dwell1_stats = calc_dwell1_stats([minus_z, psmc], pitch_bins, opt.n_sim)
+    plot_dwells1(dwells1, dwell1_stats)
+    

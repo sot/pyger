@@ -11,6 +11,9 @@ from Chandra.Time import DateTime
 import Chandra.cmd_states as cmd_states
 import Ska.DBI
 
+import characteristics
+psmc_powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
+
 n_days_prop = 3
 
 def K2F(k):
@@ -76,7 +79,7 @@ sim_inputs = {}
 
 for name, model in models.items():
     msids = model['msids']
-    state_vals = model['state_vals']
+    state_cols = model['state_cols']
     dats = {}
     idx_starts = {}
     idx_stops = {}
@@ -87,7 +90,7 @@ for name, model in models.items():
         idx_starts[msid] = numpy.searchsorted(dats[msid].times, sim_start_times)
         idx_stops[msid] = numpy.searchsorted(dats[msid].times, sim_stop_times)
 
-    states = get_states(start.date, stop.date, state_vals)
+    states = get_states(start.date, stop.date, state_cols)
 
     sim_inputs[name] = []
     for i, tstart, tstop in zip(count(), sim_start_times, sim_stop_times):
@@ -97,8 +100,10 @@ for name, model in models.items():
         out_states = []
         for state in states[ok]:
             out_state = dict(tstart=max(state['tstart'], tstart), tstop=min(state['tstop'], tstop))
-            for state_val in state_vals:
-                out_state[state_val] = state[state_val]
+            for state_col in state_cols:
+                out_state[state_col] = state[state_col]
+            if name == 'psmc':   # special case pseudo- state col
+                out_state['power'] = psmc_powers[state['ccd_count'], 1, 1]
             out_states.append(out_state)
 
         sim_inputs[name].append(dict(msids=msids, tstart=tstart, tstop=tstop, T0s=T0s, T1s=T1s, states=out_states))

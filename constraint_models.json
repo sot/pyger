@@ -1,6 +1,6 @@
 {
     "minus_z": {
-        "state_vals": [
+        "state_cols": [
             "pitch"
         ], 
         "msids": [
@@ -12,15 +12,16 @@
         ]
     }, 
     "psmc": {
-        "state_vals": [
+        "state_cols": [
             "pitch", 
             "ccd_count", 
             "clocking", 
-            "vid_board"
+            "vid_board",
+            "simpos"
         ], 
         "msids": [
-            "1pdeaat", 
-            "1pin1at"
+            "1pin1at",
+            "1pdeaat" 
         ]
     }
 }
