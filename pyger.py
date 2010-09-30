@@ -77,27 +77,29 @@ class ConstraintModel(object):
         dwells1 = []
         n_times = len(times)
 
-        print 'Simulating {0} {1} dwells ...'.format(len(i_sims), len(pitches1))
+        print 'Simulating {0} dwells ...'.format(len(i_sims))
         for i_sim, pitch1 in zip(i_sims, pitches1):
             sim_input = sim_inputs[i_sim]
             states1 = self.get_states1(start, stop, pitch1)
             Ts = self.calc_model(states1, times, sim_input['dwell1_T0s'])
 
-            ok = np.ones(len(times), np.bool)
+            bad_idx = None
+            constraint_name = 'none'
             for j, msid in enumerate(self.msids):
                 if msid in self.limits:
-                    ok &= Ts[j, :] < self.limits[msid]
-            try:
-                i_ok = np.flatnonzero(ok)[-1]
-                dwell_dur = times[i_ok] - times[0]
-            except IndexError:
-                i_ok = 0
-                dwell_dur = 0.
-            dwells1.append((dwell_dur, pitch1, Ts[:, i_ok]))
+                    bad_idxs = np.flatnonzero(Ts[j, :] >= self.limits[msid])
+                    if len(bad_idxs) > 0 and (bad_idx is None or bad_idxs[0] < bad_idx):
+                        bad_idx = bad_idxs[0]
+                        constraint_name = msid
+
+            ok_idx = -1 if (bad_idx is None) else max(bad_idx - 1, 0)
+            dwell_dur = times[ok_idx] - times[0]
+            dwells1.append((dwell_dur, pitch1, constraint_name, Ts[:, ok_idx]))
 
         self.dwells1 = np.rec.fromrecords(dwells1,
                                           dtype=[('dur', np.float64),
                                                  ('pitch', np.float64),
+                                                 ('constraint_name', '|S10'),
                                                  ('T1', np.float64, (len(self.msids),))
                                                  ])
 
@@ -160,15 +162,18 @@ class ConstraintPline(ConstraintModel):
                     pitch1 >= limit['cold_pitch_min'] and
                     pitch1 < limit['cold_pitch_max']):
                     dwell_dur = limit['cold_pitch_dur']
+                    constraint_name = 'pline'
                     break
             else:
                 dwell_dur = self.max_dwell_ksec * 1000
+                constraint_name = 'none'
 
-            dwells1.append((dwell_dur, pitch1, [warm_dwell, warm_pitch_max]))
+            dwells1.append((dwell_dur, pitch1, constraint_name, [warm_dwell, warm_pitch_max]))
 
         self.dwells1 = np.rec.fromrecords(dwells1,
                                           dtype=[('dur', np.float64),
                                                  ('pitch', np.float64),
+                                                 ('constraint_name', '|S10'),
                                                  ('T1', np.float64, (2,))
                                                  ])
 
@@ -246,21 +251,34 @@ class ConstraintPSMC(ConstraintModel):
             sim_input['dwell1_T0s'] = [sim_input['T1s']['1pin1at'],
                                        sim_input['T1s']['1pdeaat']]
 
-def plot_dwells1(constraint):
+def plot_dwells1(constraint, title='', outfile=None):
     """Make a simple plot of the dwells and dwell statistics for the given ``constraint``."""
+    plt.rc("axes", labelsize=10, titlesize=12)
+    plt.rc("xtick", labelsize=10)
+    plt.rc("ytick", labelsize=10)
+    plt.rc("font", size=10)
+    plt.rc("legend", fontsize=10)
+
     dwells1 = constraint.dwells1
     dwell1_stats = constraint.dwell1_stats
     plt.figure(1, figsize=(6,4))
     plt.clf()
-    names = set(dwells1['constraint_name'])
-    for name, color in zip(sorted(names), cycle(['b', 'r', 'g'])):
+    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline')
+    colors = ('r', 'g', 'k', 'c', 'b')
+    for name, color in zip(names, colors):
         ok = dwells1['constraint_name'] == name
-        plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color, markersize=2)
+        plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color, markersize=3, label=name)
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur90'] / 1000., '-m')
     plt.grid()
+    plt.title(title)
     plt.xlabel('Pitch (deg)')
     plt.ylabel('Dwell (ksec)')
+    plt.legend(loc='upper center')
+    plt.ylim(0, constraint.max_dwell_ksec * 1.05)
+    plt.subplots_adjust(bottom=0.12)
+    if outfile:
+        plt.savefig(outfile)
 
 
 def merge_dwells1(constraints):
@@ -273,27 +291,9 @@ def merge_dwells1(constraints):
     dwells1 = []
     for i in range(constraints[0].n_sim):
         constraint = min(constraints, key=lambda x: x.dwells1['dur'][i])
-        dwells1.append((constraint.dwells1['pitch'][i], constraint.dwells1['dur'][i], constraint.name))
+        dwells1.append(tuple(constraint.dwells1[x][i] for x in ('pitch', 'dur', 'constraint_name')))
     dwells1 = np.rec.fromrecords(dwells1, names=('pitch', 'dur', 'constraint_name'))
     return dwells1
-
-##    dwell1_stats = []
-##    for p0, p1 in zip(pitch_bins[:-1], pitch_bins[1:]):
-##        ok = (dwells1['pitch'] >= p0) & (dwells1['pitch'] < p1)
-##        dwells_ok = dwells1[ok]
-##        dwells_ok.sort(order='dur')
-##        n_dwells_ok = len(dwells_ok)
-##        dwell50 = dwells_ok[int(n_dwells_ok * 0.5)]
-##        dwell90 = dwells_ok[int(n_dwells_ok * 0.9)]
-##        dwell1_stats.append(((p0 + p1) / 2,
-##                             dwell50['dur'], dwell90['dur'],
-##                             ))
-##    dwell1_stats = np.rec.fromrecords(dwell1_stats,
-##                                      dtype=[('pitch', np.float64),
-##                                             ('dur50', np.float64),
-##                                             ('dur90', np.float64),
-##                                             ])
-##    return dwells1, dwell1_stats
 
 
 def calc_constraints(start='2011:001',
@@ -345,6 +345,7 @@ def calc_constraints(start='2011:001',
     constraints['all'].calc_dwell1_stats(pitch_bins)
 
     return constraints
+
 
 def get_options():
     from optparse import OptionParser
