@@ -67,6 +67,13 @@ stop_eng = (obsids[:-1] > 50000) & (obsids[1:] < 50000)
 # continuous block of eng obsids at least 6 hours long
 start_times = cobsrqid.times[start_eng]
 stop_times = cobsrqid.times[stop_eng]
+if stop_times[0] < start_times[0]:
+    stop_times = stop_times[1:]
+if len(start_times) > len(stop_times):
+    start_times = start_times[:len(stop_times)]
+if numpy.any(stop_times - start_times <= 0.0):
+    raise ValueError('Problem finding perigee times')
+
 perigee_dwells = stop_times - start_times > 6 * 3600
 eop_times = stop_times[perigee_dwells]
 dts = eop_times[1:] - eop_times[:-1]

@@ -11,6 +11,14 @@
             "tmzp_my"
         ]
     }, 
+    "pline": {
+        "state_cols": [
+            "pitch"
+        ], 
+        "msids": [
+            "aosares1"
+        ]
+    }, 
     "psmc": {
         "state_cols": [
             "pitch", 
