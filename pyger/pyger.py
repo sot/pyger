@@ -18,6 +18,7 @@ from . import characteristics
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
+__version__ = open(os.path.join(pkg_dir, 'VERSION')).read().strip()
 
 def CtoF(cs):
     try:
@@ -210,7 +211,7 @@ class ConstraintPline(ConstraintModel):
 
 class ConstraintMinusZ(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
-        self.pars = json.load(open(os.path.join(pkg_dir, 'minusz/pars_minusz.json')))
+        self.pars = json.load(open(os.path.join(pkg_dir, 'pars_minusz.json')))
         ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits, max_dwell_ksec)
         
     def calc_model(self, states, times, T0s, state_only=False, cache=True):
