@@ -6,18 +6,17 @@ from itertools import count, cycle
 import cPickle as pickle
 import re
 
-from Chandra.Time import DateTime
-import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
-from Ska.Matplotlib import plot_cxctime
-import Ska.Numpy
+
+from Chandra.Time import DateTime
 import asciitable
 
-import nmass
-import twodof
-import characteristics
+from . import nmass
+from . import twodof
+from . import characteristics
 
-pkg_dir = os.path.dirname(__file__)
+pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
 
 def CtoF(cs):
@@ -136,7 +135,7 @@ def hour_min_to_sec(hm):
 class ConstraintPline(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
         ConstraintModel.__init__(self, 'pline', sim_inputs, limits, max_dwell_ksec)
-        guidelines = asciitable.read('pline_guidelines.dat')
+        guidelines = asciitable.read(os.path.join(pkg_dir, 'pline_guidelines.dat'))
         # Convert guidelines to a more useful structure
         limits = []
         for guideline in guidelines:
@@ -253,8 +252,9 @@ class ConstraintPSMC(ConstraintModel):
             sim_input['dwell1_T0s'] = [sim_input['T1s']['1pin1at'],
                                        sim_input['T1s']['1pdeaat']]
 
-def plot_dwells1(constraint, title='', outfile=None):
+def plot_dwells1(constraint, plot_title=None, plot_file=None):
     """Make a simple plot of the dwells and dwell statistics for the given ``constraint``."""
+    import matplotlib.pyplot as plt
     plt.rc("axes", labelsize=10, titlesize=12)
     plt.rc("xtick", labelsize=10)
     plt.rc("ytick", labelsize=10)
@@ -273,14 +273,14 @@ def plot_dwells1(constraint, title='', outfile=None):
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur90'] / 1000., '-m')
     plt.grid()
-    plt.title(title)
+    plt.title(plot_title or '')
     plt.xlabel('Pitch (deg)')
     plt.ylabel('Dwell (ksec)')
     plt.legend(loc='upper center')
     plt.ylim(0, constraint.max_dwell_ksec * 1.05)
     plt.subplots_adjust(bottom=0.12)
-    if outfile:
-        plt.savefig(outfile)
+    if plot_file:
+        plt.savefig(plot_file)
 
 
 def merge_dwells1(constraints):
@@ -347,48 +347,3 @@ def calc_constraints(start='2011:001',
     constraints['all'].calc_dwell1_stats(pitch_bins)
 
     return constraints
-
-
-def get_options():
-    from optparse import OptionParser
-    parser = OptionParser()
-    
-    parser.add_option("--start",
-                      help="Start time")
-    parser.add_option("--n-sim",
-                      type='int',
-                      help="Number of simulation points")
-    parser.add_option("--dt",
-                      type='float',
-                      help="Delta time for sims (sec)")
-    parser.add_option("--max_tephin",
-                      type='float',
-                      help="TEPHIN planning limit")
-    parser.add_option("--max_tcylaft6",
-                      type='float',
-                      help="TCYLAFT6 planning limit")
-    parser.add_option("--max_1pdeaat",
-                      type='float',
-                      help="1PDEAAT planning limit")
-    parser.add_option("--n-ccd",
-                      type='int',
-                      help="Number of ACIS CCDs")
-    parser.add_option("--max-dwell-ksec",
-                      type='float',
-                      help="Max allowed dwell time (ksec)")
-    parser.add_option("--sim-file",
-                      default="sim_inputs.pkl",
-                      help="Simulation inputs pickle file")
-    parser.add_option("--make-plots",
-                      action="store_true",
-                      help="Make plots")
-
-    return parser.parse_args()
-
-
-##if __name__ == '__main__':
-##    opt, args = get_options()
-##    constraints, n_sim = calc_constraints(**opt.__dict__)
-##    if opt.make_plots:
-##        plot_dwells1(dwells1, dwell1_stats)
-
