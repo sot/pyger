@@ -1,4 +1,5 @@
 import sys
+import os
 import json
 import time
 from itertools import count, cycle
@@ -16,7 +17,8 @@ import nmass
 import twodof
 import characteristics
 
-constraint_models = json.load(open('constraint_models.json'))
+pkg_dir = os.path.dirname(__file__)
+constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
 
 def CtoF(cs):
     try:
@@ -209,7 +211,7 @@ class ConstraintPline(ConstraintModel):
 
 class ConstraintMinusZ(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
-        self.pars = json.load(open('minusz/pars_minusz.json'))
+        self.pars = json.load(open(os.path.join(pkg_dir, 'minusz/pars_minusz.json')))
         ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits, max_dwell_ksec)
         
     def calc_model(self, states, times, T0s, state_only=False, cache=True):
@@ -384,9 +386,9 @@ def get_options():
     return parser.parse_args()
 
 
-if __name__ == '__main__':
-    opt, args = get_options()
-    constraints, n_sim = calc_constraints(**opt.__dict__)
-    if opt.make_plots:
-        plot_dwells1(dwells1, dwell1_stats)
+##if __name__ == '__main__':
+##    opt, args = get_options()
+##    constraints, n_sim = calc_constraints(**opt.__dict__)
+##    if opt.make_plots:
+##        plot_dwells1(dwells1, dwell1_stats)
 
