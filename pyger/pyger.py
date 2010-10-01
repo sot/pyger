@@ -1,3 +1,6 @@
+"""
+Calculate Chandra dwell times given thermal constraints
+"""
 import sys
 import os
 import json
@@ -9,6 +12,7 @@ import re
 import matplotlib
 import numpy as np
 
+import clogging
 from Chandra.Time import DateTime
 import asciitable
 
@@ -19,6 +23,7 @@ from . import characteristics
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
 __version__ = open(os.path.join(pkg_dir, 'VERSION')).read().strip()
+logger = clogging.config_logger('pyger')
 
 def CtoF(cs):
     try:
@@ -55,7 +60,8 @@ class ConstraintModel(object):
         profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
         values."""
 
-        print 'Calculating start temps for {0} dwells ...'.format(len(self.sim_inputs))
+        logger.info('{0}: calculating start temps for {1} dwells'.format(
+            self.name.upper(), len(self.sim_inputs)))
         for sim_input in self.sim_inputs:
             states = sim_input['states']
             state_cols = states[0].keys()
@@ -74,12 +80,13 @@ class ConstraintModel(object):
             sim_input['dwell1_T0s'] = Ts[:,-1]
 
     def calc_dwells1(self, start, stop, times, pitches1, i_sims):
+        self.start = start
         self.calc_dwell1_T0s(start)
         sim_inputs = self.sim_inputs
         dwells1 = []
         n_times = len(times)
 
-        print 'Simulating {0} dwells ...'.format(len(i_sims))
+        logger.info('{0}: simulating {1} dwells'.format(self.name.upper(), len(i_sims)))
         for i_sim, pitch1 in zip(i_sims, pitches1):
             sim_input = sim_inputs[i_sim]
             states1 = self.get_states1(start, stop, pitch1)
@@ -151,9 +158,11 @@ class ConstraintPline(ConstraintModel):
 
 
     def calc_dwells1(self, start, stop, times, pitches1, i_sims):
+        self.start = start
         self.calc_dwell1_T0s(start)
 
         dwells1 = []
+        logger.info('{0}: simulating {1} dwells'.format(self.name.upper(), len(i_sims)))
         for i_sim, pitch1 in zip(i_sims, pitches1):
             sim_input = self.sim_inputs[i_sim]
             warm_dwell, warm_pitch_max = sim_input['dwell1_T0s']
@@ -194,7 +203,8 @@ class ConstraintPline(ConstraintModel):
         0          180            0:00           0:00           0:00          0:00
         """
 
-        print 'Calculating the warm time'
+        logger.info('{0}: calculating warm time for {1} dwells'.format(
+            self.name.upper(), len(self.sim_inputs)))
         for sim_input in self.sim_inputs:
             warm_pitch_max = 0
             warm_dwell = 0
@@ -248,13 +258,20 @@ class ConstraintPSMC(ConstraintModel):
         profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
         values."""
 
-        print 'Using telemetry for PSMC start temps assuming no time evolution'
+        logger.info('{0}: calculating start temps for {1} dwells'.format(
+            self.name.upper(), len(self.sim_inputs)))
         for sim_input in self.sim_inputs:
             sim_input['dwell1_T0s'] = [sim_input['T1s']['1pin1at'],
                                        sim_input['T1s']['1pdeaat']]
 
-def plot_dwells1(constraint, plot_title=None, plot_file=None):
-    """Make a simple plot of the dwells and dwell statistics for the given ``constraint``."""
+def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
+    """Make a simple plot of the dwells and dwell statistics for the given ``constraint``.
+
+    :param constraint: ConstraintModel object (e.g. constraints['all'])
+    :param plot_title: plot title
+    :param plot_file: output file for plot
+    :param figure: matplotlib figure ID (default=1)
+    """
     import matplotlib.pyplot as plt
     plt.rc("axes", labelsize=10, titlesize=12)
     plt.rc("xtick", labelsize=10)
@@ -264,7 +281,7 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None):
 
     dwells1 = constraint.dwells1
     dwell1_stats = constraint.dwell1_stats
-    plt.figure(1, figsize=(6,4))
+    plt.figure(figure, figsize=(6,4))
     plt.clf()
     names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline')
     colors = ('r', 'g', 'k', 'c', 'b')
@@ -281,6 +298,7 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None):
     plt.ylim(0, constraint.max_dwell_ksec * 1.05)
     plt.subplots_adjust(bottom=0.12)
     if plot_file:
+        logger.info('Writing constraint plot file {0}'.format(plot_file))
         plt.savefig(plot_file)
 
 
@@ -313,10 +331,35 @@ def calc_constraints(start='2011:001',
                      bin_pitch=2,
                      constraint_models=('minus_z', 'psmc', 'pline'),
                      ):
+    """
+    Calculate allowed dwell times coming out of perigee given a set of
+    constraint models.
+
+    :param start: date at which to perform the constraint simulations
+    :param n_sim: number of Monte-Carlo simulations of (pitch, starting condition) (default=500)
+    :param dt: step size used in thermal model computations (default=1000 sec)
+    :param max_tephin: TEPHIN planning limit (default=128 degF)
+    :param max_tcylaft6: TCYLAFT6 planning limit (default=93 degF)
+    :param max_1pdeaat: 1PDEAAT planning limit (default=52.5 degC)
+    :param n_ccd: number of ACIS CCDs being used
+    :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
+    :param sim_file: simulation inputs file from "pyger make" (default=sim_inputs.pkl)
+    :param min_pitch: minimum pitch in simulations (default=45)
+    :param max_pitch: maximum pitch in simulations (default=169)
+    :param bin_pitch: pitch bin size for calculating stats (default=2)
+    :param constraint_models: name of applicable constraint models (default=('minus_z', 'psmc', 'pline'))
+
+    :returns: dict of computed constraint model objects
+    """
     start = DateTime(start)
     stop = DateTime(start.secs + max_dwell_ksec * 1000)
     times = np.arange(start.secs, stop.secs, dt)
-    sim_inputs = pickle.load(open(sim_file))
+    try:
+        sim_inputs = pickle.load(open(sim_file))
+    except IOError:
+        logger.error('ERROR: simulation inputs file "{0}" not found.'
+                     '  Run "pyger make" or "pyger make --help".'.format(sim_file))
+        sys.exit(1)
     i_sims = np.random.randint(len(sim_inputs['minus_z']), size=n_sim)
     pitches1 = np.random.uniform(min_pitch, max_pitch, size=n_sim)
     constraints = {}
@@ -346,5 +389,6 @@ def calc_constraints(start='2011:001',
                                          max_dwell_ksec=max_dwell_ksec)
     constraints['all'].dwells1 = dwells1
     constraints['all'].calc_dwell1_stats(pitch_bins)
+    constraints['all'].start = start
 
     return constraints

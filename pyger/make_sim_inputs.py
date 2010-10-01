@@ -3,6 +3,7 @@ import sys
 from itertools import count
 import cPickle as pickle
 import json
+import clogging
 
 import numpy
 
@@ -13,6 +14,8 @@ import Ska.DBI
 
 from . import characteristics
 psmc_powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
+
+logger = clogging.config_logger('make_sim_inputs')
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
@@ -38,6 +41,9 @@ def get_states(datestart, datestop, state_vals):
 def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
     stop = DateTime(stop or DateTime().secs - 86400. * 10)
     start = DateTime(start or DateTime().secs - 86400. * 365)
+    logger.info('Creating pyger simulation inputs covering {0} to {1}'.format(
+        start.date[:8], stop.date[:8]))
+    logger.info('Reading Obsids...')
     cobsrqid = fetch.MSID('cobsrqid', start.secs, stop.secs)
 
     # Find transitions between engineering obsids and science obsids
@@ -62,11 +68,10 @@ def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
     ok = (dts > 225000) & (dts < 235000)
     eop_times_ok = eop_times[:-1][ok]
 
-    
-
     sim_inputs = {}
 
     for name, model in constraint_models.items():
+        logger.info('Assembling inputs for {0}'.format(name))
         msids = model['msids']
         state_cols = model['state_cols']
         dats = {}
@@ -75,6 +80,7 @@ def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
         sim_stop_times = eop_times_ok
         sim_start_times = sim_stop_times - 86400 * n_days
         for msid in msids:
+            logger.info('  Fetching {0} telemetry'.format(msid))
             dats[msid] = fetch.MSID(msid, start.secs - 86400*(n_days+1), stop.secs, stat='5min')
             idx_starts[msid] = numpy.searchsorted(dats[msid].times, sim_start_times)
             idx_stops[msid] = numpy.searchsorted(dats[msid].times, sim_stop_times)
@@ -97,6 +103,7 @@ def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
 
             sim_inputs[name].append(dict(msids=msids, tstart=tstart, tstop=tstop, T0s=T0s, T1s=T1s, states=out_states))
 
+    logger.info('Writing simulation inputs to {0}'.format(outfile))
     with open(outfile, 'w') as f:
         pickle.dump(sim_inputs, f, protocol=-1)
 
