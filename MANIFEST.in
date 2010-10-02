@@ -1,0 +1,3 @@
+include pyger/*.dat
+include pyger/*json
+include pyger/VERSION

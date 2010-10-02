@@ -12,10 +12,10 @@ import re
 import matplotlib
 import numpy as np
 
-import clogging
 from Chandra.Time import DateTime
 import asciitable
 
+from . import clogging
 from . import nmass
 from . import twodof
 from . import characteristics

@@ -3,7 +3,6 @@ import sys
 from itertools import count
 import cPickle as pickle
 import json
-import clogging
 
 import numpy
 
@@ -12,6 +11,7 @@ from Chandra.Time import DateTime
 import Chandra.cmd_states as cmd_states
 import Ska.DBI
 
+from . import clogging
 from . import characteristics
 psmc_powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
 

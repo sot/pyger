@@ -31,5 +31,6 @@ setup(name='pyger',
           'Programming Language :: Python :: 2',
           ],
       packages=['pyger'],
-      package_data = {'': ['*.dat', '*.json']},
+      include_package_data=True,
+      package_data = {'': ['*.dat', '*.json', 'VERSION']},
       )
