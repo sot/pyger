@@ -225,8 +225,10 @@ class ConstraintMinusZ(ConstraintModel):
         ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits, max_dwell_ksec)
         
     def calc_model(self, states, times, T0s, state_only=False, cache=True):
+        states_dwell_ksec = (states[-1][1] - states[0][0]) / 1000.0
+        max_dwell_ksec = max(self.max_dwell_ksec, states_dwell_ksec * 1.05)
         Ts = nmass.calc_model(self.pars, states, times, T0s, self.msids, cache=cache,
-                              state_only=state_only, max_dwell_ksec=self.max_dwell_ksec)
+                              state_only=state_only, max_dwell_ksec=max_dwell_ksec)
         return Ts
 
     def get_states1(self, start, stop, pitch1):
