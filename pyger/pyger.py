@@ -36,7 +36,7 @@ def FtoC(cs):
         return [(c-32) / 1.8 for c in cs]
     except TypeError:
         return (cs-32) / 1.8
-        
+
 
 class ConstraintModel(object):
     def __init__(self, name, sim_inputs, limits, max_dwell_ksec):
@@ -223,7 +223,7 @@ class ConstraintMinusZ(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
         self.pars = json.load(open(os.path.join(pkg_dir, 'pars_minusz.json')))
         ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits, max_dwell_ksec)
-        
+
     def calc_model(self, states, times, T0s, state_only=False, cache=True):
         states_dwell_ksec = (states[-1][1] - states[0][0]) / 1000.0
         max_dwell_ksec = max(self.max_dwell_ksec, states_dwell_ksec * 1.05)
@@ -242,7 +242,7 @@ class ConstraintPSMC(ConstraintModel):
         self.n_ccd = n_ccd
         self.powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
         ConstraintModel.__init__(self, 'psmc', sim_inputs, limits, max_dwell_ksec)
-        
+
     def calc_model(self, states, times, T0s, state_only=False, cache=False):
         pin0 = T0s[0]
         dea0 = T0s[1]
