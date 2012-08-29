@@ -4,16 +4,15 @@ Calculate Chandra dwell times given thermal constraints
 import sys
 import os
 import json
-import time
-from itertools import count, cycle
 import cPickle as pickle
 import re
 
-import matplotlib
 import numpy as np
 
+import Ska.Numpy
 from Chandra.Time import DateTime
 import asciitable
+import xija
 
 from . import clogging
 from . import nmass
@@ -236,6 +235,40 @@ class ConstraintMinusZ(ConstraintModel):
                                   names=('tstart', 'tstop', 'pitch'))
 
 
+class ConstraintDPA(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+        self.n_ccd = n_ccd
+        ConstraintModel.__init__(self, 'dpa', sim_inputs, limits, max_dwell_ksec)
+
+    def calc_model(self, states, times, T0s, state_only=False, cache=True):
+        model_spec = os.path.join(pkg_dir, 'dpa_model_spec.json')
+        model = xija.ThermalModel('dpa', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=model_spec)
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['sim_z'].set_data(states['simpos'], state_times)
+        model.comp['eclipse'].set_data(False)
+        model.comp['1dpamzt'].set_data(T0s[0])
+        model.comp['dpa_power'].set_data(0.0)
+
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+            model.comp[name].set_data(states[name], state_times)
+
+        model.make()
+        model.calc()
+        T_dpa = Ska.Numpy.interpolate(model.comp['1dpamzt'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+        return np.vstack([T_dpa])
+
+    def get_states1(self, start, stop, pitch1):
+        states = [(start.secs, stop.secs, self.n_ccd, self.n_ccd, 1, 1,
+                   pitch1, 75000)]
+        names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
+                 'clocking', 'pitch', 'simpos')
+        return np.rec.fromrecords(states, names=names)
+
+
 class ConstraintPSMC(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
         self.pars = characteristics.model_par
@@ -285,11 +318,12 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     dwell1_stats = constraint.dwell1_stats
     plt.figure(figure, figsize=(6,4))
     plt.clf()
-    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline')
-    colors = ('r', 'g', 'k', 'c', 'b')
+    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline', '1dpamzt')
+    colors = ('r', 'g', 'k', 'c', 'b', 'm')
     for name, color in zip(names, colors):
         ok = dwells1['constraint_name'] == name
-        plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color, markersize=3, label=name)
+        plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color,
+                 markersize=3, label=name, mec=color)
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur90'] / 1000., '-m')
     plt.grid()
@@ -322,16 +356,17 @@ def merge_dwells1(constraints):
 def calc_constraints(start='2011:001',
                      n_sim=500,
                      dt=1000.,
-                     max_tephin=128.0,
-                     max_tcylaft6=93.0,
+                     max_tephin=138.0,
+                     max_tcylaft6=99.0,
                      max_1pdeaat=52.5,
+                     max_1dpamzt=32.5,
                      n_ccd=6,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
                      max_pitch=169,
                      bin_pitch=2,
-                     constraint_models=('minus_z', 'psmc', 'pline'),
+                     constraint_models=('minus_z', 'psmc', 'pline', 'dpa'),
                      ):
     """
     Calculate allowed dwell times coming out of perigee given a set of
@@ -340,16 +375,17 @@ def calc_constraints(start='2011:001',
     :param start: date at which to perform the constraint simulations
     :param n_sim: number of Monte-Carlo simulations of (pitch, starting condition) (default=500)
     :param dt: step size used in thermal model computations (default=1000 sec)
-    :param max_tephin: TEPHIN planning limit (default=128 degF)
-    :param max_tcylaft6: TCYLAFT6 planning limit (default=93 degF)
+    :param max_tephin: TEPHIN planning limit (default=138 degF)
+    :param max_tcylaft6: TCYLAFT6 planning limit (default=99 degF)
     :param max_1pdeaat: 1PDEAAT planning limit (default=52.5 degC)
+    :param max_1dpamzt: 1DPAMZT planning limit (default=32.5 degC)
     :param n_ccd: number of ACIS CCDs being used
     :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
     :param sim_file: simulation inputs file from "pyger make" (default=sim_inputs.pkl)
     :param min_pitch: minimum pitch in simulations (default=45)
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
-    :param constraint_models: name of applicable constraint models (default=('minus_z', 'psmc', 'pline'))
+    :param constraint_models: names of constraint models (default=('minus_z', 'psmc', 'pline', 'dpa'))
 
     :returns: dict of computed constraint model objects
     """
@@ -375,6 +411,11 @@ def calc_constraints(start='2011:001',
                                              limits={'1pdeaat': max_1pdeaat},
                                              max_dwell_ksec=max_dwell_ksec,
                                              n_ccd=n_ccd)
+    if 'dpa' in constraint_models:
+        constraints['dpa'] = ConstraintDPA(sim_inputs,
+                                           limits={'1dpamzt': max_1dpamzt},
+                                           max_dwell_ksec=max_dwell_ksec,
+                                           n_ccd=n_ccd)
     if 'pline' in constraint_models:
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,

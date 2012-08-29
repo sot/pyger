@@ -1,5 +1,6 @@
 from .pyger import (calc_constraints, plot_dwells1, __version__, CtoF,
-                    ConstraintModel, ConstraintPline, ConstraintMinusZ, ConstraintPSMC)
+                    ConstraintModel, ConstraintPline, ConstraintMinusZ, ConstraintPSMC,
+                    ConstraintDPA)
 
 from .make_sim_inputs import make_sim_inputs
 
@@ -40,6 +41,9 @@ def get_options():
                       type=float,
                       help="TCYLAFT6 planning limit (degF)")
     parser_sim.add_argument("--max-1pdeaat",
+                      type=float,
+                      help="1PDEAAT planning limit (degF)")
+    parser_sim.add_argument("--max-1dpamzt",
                       type=float,
                       help="1PDEAAT planning limit (degF)")
     parser_sim.add_argument("--n-ccd",
