@@ -1,6 +1,6 @@
 from .pyger import (calc_constraints, plot_dwells1, __version__, CtoF,
                     ConstraintModel, ConstraintPline, ConstraintMinusZ, ConstraintPSMC)
-         
+
 from .make_sim_inputs import make_sim_inputs
 
 def get_options():
@@ -22,7 +22,7 @@ def get_options():
                              type=float,
                              help="Number of days to propagate prior to perigee exit (default = 3)")
     parser_make.set_defaults(func=make_sim_inputs)
-    
+
     # create the parser for the "sim" command to run a constraint simulation
     parser_sim = subparsers.add_parser('sim', help='Simulate constraints')
     parser_sim.add_argument("--start",
@@ -85,6 +85,3 @@ if __name__ == '__main__':
                          plot_file=opt.plot_file)
     elif opt.func == make_sim_inputs:
         make_sim_inputs(**opt_args)
-
-
-
