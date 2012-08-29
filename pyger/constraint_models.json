@@ -11,6 +11,19 @@
             "tmzp_my"
         ]
     }, 
+    "dpa": {
+        "state_cols": [
+            "pitch", 
+            "ccd_count", 
+            "fep_count", 
+            "clocking", 
+            "vid_board",
+            "simpos"
+        ], 
+        "msids": [
+            "1dpamzt" 
+        ]
+    }, 
     "pline": {
         "state_cols": [
             "pitch"
