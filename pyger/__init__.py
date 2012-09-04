@@ -42,10 +42,13 @@ def get_options():
                       help="TCYLAFT6 planning limit (degF)")
     parser_sim.add_argument("--max-1pdeaat",
                       type=float,
-                      help="1PDEAAT planning limit (degF)")
+                      help="1PDEAAT planning limit (degC)")
     parser_sim.add_argument("--max-1dpamzt",
                       type=float,
-                      help="1PDEAAT planning limit (degF)")
+                      help="1PDEAAT planning limit (degC)")
+    parser_sim.add_argument("--max-pftank2t",
+                      type=float,
+                      help="PFTANK2T planning limit (degF)")
     parser_sim.add_argument("--n-ccd",
                       type=int,
                       help="Number of ACIS CCDs")

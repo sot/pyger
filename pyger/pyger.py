@@ -237,28 +237,44 @@ class ConstraintMinusZ(ConstraintModel):
 
 class ConstraintDPA(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+        self.model_cache = {}
         self.n_ccd = n_ccd
+        model_spec = os.path.join(pkg_dir, 'dpa_model_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
         ConstraintModel.__init__(self, 'dpa', sim_inputs, limits, max_dwell_ksec)
 
     def calc_model(self, states, times, T0s, state_only=False, cache=True):
-        model_spec = os.path.join(pkg_dir, 'dpa_model_spec.json')
-        model = xija.ThermalModel('dpa', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=model_spec)
+        key = tuple(states.tolist())
+        model = self.model_cache.get(key)
+        if not model:
+            model = xija.ThermalModel('dpa', start=states['tstart'][0],
+                                      stop=states['tstop'][-1],
+                                      model_spec=self.model_spec)
+            state_times = np.array([states['tstart'], states['tstop']])
+            model.comp['sim_z'].set_data(states['simpos'], state_times)
+            model.comp['eclipse'].set_data(False)
+            model.comp['1dpamzt'].set_data(T0s[0])
+            model.comp['dpa_power'].set_data(0.0)
 
-        state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['sim_z'].set_data(states['simpos'], state_times)
-        model.comp['eclipse'].set_data(False)
-        model.comp['1dpamzt'].set_data(T0s[0])
-        model.comp['dpa_power'].set_data(0.0)
+            for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+                model.comp[name].set_data(states[name], state_times)
+            model.make()
+        else:
+            print 'Cache hit'
 
-        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
-            model.comp[name].set_data(states[name], state_times)
+        model.comp['pitch'].dvals[:] = states['pitch']
+        model.comp['pitch'].mvals[:] = states['pitch']
+        del model.comp['solarheat__1dpamzt'].pitches
+        model.comp['1dpamzt'].dvals[:] = T0s[0]
+        model.comp['1dpamzt'].mvals[:] = T0s[0]
 
-        model.make()
         model.calc()
         T_dpa = Ska.Numpy.interpolate(model.comp['1dpamzt'].mvals,
                                       xin=model.times, xout=times, sorted=True)
+        if cache and key not in self.model_cache:
+            self.model_cache[key] = model
+            print 'Cache len =', len(self.model_cache)
+
         return np.vstack([T_dpa])
 
     def get_states1(self, start, stop, pitch1):
@@ -379,6 +395,7 @@ def calc_constraints(start='2011:001',
     :param max_tcylaft6: TCYLAFT6 planning limit (default=99 degF)
     :param max_1pdeaat: 1PDEAAT planning limit (default=52.5 degC)
     :param max_1dpamzt: 1DPAMZT planning limit (default=32.5 degC)
+    :param max_pftank2t: PFTANK2T planning limit (default=93.0 degF)
     :param n_ccd: number of ACIS CCDs being used
     :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
     :param sim_file: simulation inputs file from "pyger make" (default=sim_inputs.pkl)
@@ -416,6 +433,10 @@ def calc_constraints(start='2011:001',
                                            limits={'1dpamzt': max_1dpamzt},
                                            max_dwell_ksec=max_dwell_ksec,
                                            n_ccd=n_ccd)
+    if 'tank' in constraint_models:
+        constraints['tank'] = ConstraintTank(sim_inputs,
+                                           limits={'pftank2': FtoC(max_pftank2t)},
+                                           max_dwell_ksec=max_dwell_ksec)
     if 'pline' in constraint_models:
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,
