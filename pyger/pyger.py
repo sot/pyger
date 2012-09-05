@@ -4,16 +4,19 @@ Calculate Chandra dwell times given thermal constraints
 import sys
 import os
 import json
-import time
-from itertools import count, cycle
 import cPickle as pickle
 import re
 
-import matplotlib
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
+import Ska.Numpy
 from Chandra.Time import DateTime
 import asciitable
+
+import xija
 
 from . import clogging
 from . import nmass
@@ -36,7 +39,7 @@ def FtoC(cs):
         return [(c-32) / 1.8 for c in cs]
     except TypeError:
         return (cs-32) / 1.8
-        
+
 
 class ConstraintModel(object):
     def __init__(self, name, sim_inputs, limits, max_dwell_ksec):
@@ -223,7 +226,7 @@ class ConstraintMinusZ(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
         self.pars = json.load(open(os.path.join(pkg_dir, 'pars_minusz.json')))
         ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits, max_dwell_ksec)
-        
+
     def calc_model(self, states, times, T0s, state_only=False, cache=True):
         states_dwell_ksec = (states[-1][1] - states[0][0]) / 1000.0
         max_dwell_ksec = max(self.max_dwell_ksec, states_dwell_ksec * 1.05)
@@ -236,13 +239,84 @@ class ConstraintMinusZ(ConstraintModel):
                                   names=('tstart', 'tstop', 'pitch'))
 
 
+class ConstraintDPA(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+        self.n_ccd = n_ccd
+        model_spec = os.path.join(pkg_dir, 'dpa_model_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'dpa', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def calc_model(self, states, times, T0s, state_only=False, cache=True):
+        model = xija.ThermalModel('dpa', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['sim_z'].set_data(states['simpos'], state_times)
+        model.comp['eclipse'].set_data(False)
+        model.comp['1dpamzt'].set_data(T0s[0])
+        model.comp['dpa_power'].set_data(0.0)
+
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+            model.comp[name].set_data(states[name], state_times)
+
+        model.make()
+        model.calc()
+        T_dpa = Ska.Numpy.interpolate(model.comp['1dpamzt'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+
+        return np.vstack([T_dpa])
+
+    def get_states1(self, start, stop, pitch1):
+        states = [(start.secs, stop.secs, self.n_ccd, self.n_ccd, 1, 1,
+                   pitch1, 75000)]
+        names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
+                 'clocking', 'pitch', 'simpos')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintTank(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+        model_spec = os.path.join(pkg_dir, 'pftank2t_model_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'tank', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def calc_model(self, states, times, T0s, state_only=False):
+        model = xija.ThermalModel('tank', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['pitch'].set_data(states['pitch'], state_times)
+        model.comp['eclipse'].set_data(False)
+        # Empirical formula from settling values for pf0tank2t and pftank2t.
+        # The two values converge at 22 C (pitch > 140), while at pitch = 120
+        # pftank2t = 39 and pf0tank2t = 36.
+        model.comp['pf0tank2t'].set_data(22 + 14. / 17. * (T0s[0] - 22.0))
+        model.comp['pftank2t'].set_data(T0s[0])
+
+        model.make()
+        model.calc()
+        T_tank = Ska.Numpy.interpolate(model.comp['pftank2t'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+
+        return np.vstack([T_tank])
+
+    def get_states1(self, start, stop, pitch1):
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
+        return np.rec.fromrecords(states, names=names)
+
+
 class ConstraintPSMC(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
         self.pars = characteristics.model_par
         self.n_ccd = n_ccd
         self.powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
         ConstraintModel.__init__(self, 'psmc', sim_inputs, limits, max_dwell_ksec)
-        
+
     def calc_model(self, states, times, T0s, state_only=False, cache=False):
         pin0 = T0s[0]
         dea0 = T0s[1]
@@ -257,8 +331,8 @@ class ConstraintPSMC(ConstraintModel):
 
     def calc_dwell1_T0s(self, start):
         """Calculate the starting temperature vectors for the ensemble of pitch
-        profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
-        values."""
+        profiles at the given ``start`` time.  Creates
+        sim_inputs[]['dwell1_T0s'] values."""
 
         logger.info('{0}: calculating start temps for {1} dwells'.format(
             self.name.upper(), len(self.sim_inputs)))
@@ -267,14 +341,14 @@ class ConstraintPSMC(ConstraintModel):
                                        sim_input['T1s']['1pdeaat']]
 
 def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
-    """Make a simple plot of the dwells and dwell statistics for the given ``constraint``.
+    """Make a simple plot of the dwells and dwell statistics for the given
+    ``constraint``.
 
     :param constraint: ConstraintModel object (e.g. constraints['all'])
     :param plot_title: plot title
     :param plot_file: output file for plot
     :param figure: matplotlib figure ID (default=1)
     """
-    import matplotlib.pyplot as plt
     plt.rc("axes", labelsize=10, titlesize=12)
     plt.rc("xtick", labelsize=10)
     plt.rc("ytick", labelsize=10)
@@ -285,11 +359,13 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     dwell1_stats = constraint.dwell1_stats
     plt.figure(figure, figsize=(6,4))
     plt.clf()
-    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline')
-    colors = ('r', 'g', 'k', 'c', 'b')
+    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline',
+             '1dpamzt', 'pftank2t')
+    colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y')
     for name, color in zip(names, colors):
         ok = dwells1['constraint_name'] == name
-        plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color, markersize=3, label=name)
+        plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color,
+                 markersize=3, label=name, mec=color)
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur90'] / 1000., '-m')
     plt.grid()
@@ -297,7 +373,7 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     plt.xlabel('Pitch (deg)')
     plt.ylabel('Dwell (ksec)')
     plt.legend(loc='upper center')
-    plt.ylim(0, constraint.max_dwell_ksec * 1.05)
+    plt.ylim(constraint.max_dwell_ksec * -0.05, constraint.max_dwell_ksec * 1.05)
     plt.subplots_adjust(bottom=0.12)
     if plot_file:
         logger.info('Writing constraint plot file {0}'.format(plot_file))
@@ -322,16 +398,18 @@ def merge_dwells1(constraints):
 def calc_constraints(start='2011:001',
                      n_sim=500,
                      dt=1000.,
-                     max_tephin=128.0,
-                     max_tcylaft6=93.0,
+                     max_tephin=138.0,
+                     max_tcylaft6=99.0,
                      max_1pdeaat=52.5,
+                     max_1dpamzt=32.5,
+                     max_pftank2t=93.0,
                      n_ccd=6,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
                      max_pitch=169,
                      bin_pitch=2,
-                     constraint_models=('minus_z', 'psmc', 'pline'),
+                     constraint_models=('minus_z', 'psmc', 'pline', 'dpa', 'tank'),
                      ):
     """
     Calculate allowed dwell times coming out of perigee given a set of
@@ -340,16 +418,18 @@ def calc_constraints(start='2011:001',
     :param start: date at which to perform the constraint simulations
     :param n_sim: number of Monte-Carlo simulations of (pitch, starting condition) (default=500)
     :param dt: step size used in thermal model computations (default=1000 sec)
-    :param max_tephin: TEPHIN planning limit (default=128 degF)
-    :param max_tcylaft6: TCYLAFT6 planning limit (default=93 degF)
+    :param max_tephin: TEPHIN planning limit (default=138 degF)
+    :param max_tcylaft6: TCYLAFT6 planning limit (default=99 degF)
     :param max_1pdeaat: 1PDEAAT planning limit (default=52.5 degC)
+    :param max_1dpamzt: 1DPAMZT planning limit (default=32.5 degC)
+    :param max_pftank2t: PFTANK2T planning limit (default=93.0 degF)
     :param n_ccd: number of ACIS CCDs being used
     :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
     :param sim_file: simulation inputs file from "pyger make" (default=sim_inputs.pkl)
     :param min_pitch: minimum pitch in simulations (default=45)
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
-    :param constraint_models: name of applicable constraint models (default=('minus_z', 'psmc', 'pline'))
+    :param constraint_models: constraint models (default=('minus_z', 'psmc', 'pline', 'dpa', 'tank'))
 
     :returns: dict of computed constraint model objects
     """
@@ -375,6 +455,15 @@ def calc_constraints(start='2011:001',
                                              limits={'1pdeaat': max_1pdeaat},
                                              max_dwell_ksec=max_dwell_ksec,
                                              n_ccd=n_ccd)
+    if 'dpa' in constraint_models:
+        constraints['dpa'] = ConstraintDPA(sim_inputs,
+                                           limits={'1dpamzt': max_1dpamzt},
+                                           max_dwell_ksec=max_dwell_ksec,
+                                           n_ccd=n_ccd)
+    if 'tank' in constraint_models:
+        constraints['tank'] = ConstraintTank(sim_inputs,
+                                           limits={'pftank2t': FtoC(max_pftank2t)},
+                                           max_dwell_ksec=max_dwell_ksec)
     if 'pline' in constraint_models:
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,
