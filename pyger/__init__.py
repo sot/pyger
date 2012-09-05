@@ -1,8 +1,9 @@
 from .pyger import (calc_constraints, plot_dwells1, __version__, CtoF,
                     ConstraintModel, ConstraintPline, ConstraintMinusZ, ConstraintPSMC,
-                    ConstraintDPA)
+                    ConstraintDPA, ConstraintTank)
 
 from .make_sim_inputs import make_sim_inputs
+
 
 def get_options():
     import argparse
