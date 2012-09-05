@@ -147,6 +147,7 @@ The constraint simulation and plot generation is done with ``pyger sim``.  First
 
 Then run it, which takes about 25 seconds for the default settings::
 
+  % pyger sim
   MINUS_Z: calculating start temps for 107 dwells
   MINUS_Z: simulating 500 dwells
   PSMC: calculating start temps for 107 dwells
@@ -157,7 +158,7 @@ Then run it, which takes about 25 seconds for the default settings::
   DPA: simulating 500 dwells
   TANK: calculating start temps for 107 dwells
   TANK: simulating 500 dwells
-  Writing constraint plot file constr_2013001.png
+  Writing constraint plot file constraints.png
 
 Note that the ``--start`` parameter can be specified in any valid  `DateTime format`_.
 
