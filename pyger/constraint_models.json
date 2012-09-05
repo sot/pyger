@@ -24,6 +24,14 @@
             "1dpamzt" 
         ]
     }, 
+    "tank": {
+        "state_cols": [
+            "pitch" 
+        ], 
+        "msids": [
+            "pftank2t" 
+        ]
+    }, 
     "pline": {
         "state_cols": [
             "pitch"

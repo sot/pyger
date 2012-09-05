@@ -1,5 +1,5 @@
 import os
-import sys
+
 from itertools import count
 import cPickle as pickle
 import json
