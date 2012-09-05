@@ -86,7 +86,7 @@ make``.  First look at the available options::
 Now run it, which takes about a minute using the recommended default settings::
 
   % pyger make
-  Creating pyger simulation inputs covering 2009:274 to 2010:264
+  Creating pyger simulation inputs covering 2011:249 to 2012:239
   Reading Obsids...
   Assembling inputs for minus_z
     Fetching tcylaft6 telemetry
@@ -96,10 +96,15 @@ Now run it, which takes about a minute using the recommended default settings::
     Fetching tmzp_my telemetry
   Assembling inputs for pline
     Fetching aosares1 telemetry
+  Assembling inputs for tank
+    Fetching pftank2t telemetry
   Assembling inputs for psmc
     Fetching 1pin1at telemetry
     Fetching 1pdeaat telemetry
+  Assembling inputs for dpa
+    Fetching 1dpamzt telemetry
   Writing simulation inputs to sim_inputs.pkl
+
 
 Note that the ``--start`` and ``--stop`` parameters can be specified in any valid  `DateTime format`_.
 
@@ -111,13 +116,14 @@ The constraint simulation and plot generation is done with ``pyger sim``.  First
   % pyger sim --help
   usage: pyger sim [-h] [--start START] [--n-sim N_SIM] [--dt DT]
                    [--max-tephin MAX_TEPHIN] [--max-tcylaft6 MAX_TCYLAFT6]
-                   [--max-1pdeaat MAX_1PDEAAT] [--n-ccd N_CCD]
+                   [--max-1pdeaat MAX_1PDEAAT] [--max-1dpamzt MAX_1DPAMZT]
+                   [--max-pftank2t MAX_PFTANK2T] [--n-ccd N_CCD]
                    [--max-dwell-ksec MAX_DWELL_KSEC] [--sim-file SIM_FILE]
                    [--plot-file PLOT_FILE] [--plot-title PLOT_TITLE]
 
   optional arguments:
     -h, --help            show this help message and exit
-    --start START         Simulation start time (`DateTime format`_)
+    --start START         Simulation start time
     --n-sim N_SIM         Number of simulation points
     --dt DT               Delta time for sims (sec)
     --max-tephin MAX_TEPHIN
@@ -125,7 +131,11 @@ The constraint simulation and plot generation is done with ``pyger sim``.  First
     --max-tcylaft6 MAX_TCYLAFT6
                           TCYLAFT6 planning limit (degF)
     --max-1pdeaat MAX_1PDEAAT
-                          1PDEAAT planning limit (degF)
+                          1PDEAAT planning limit (degC)
+    --max-1dpamzt MAX_1DPAMZT
+                          1PDEAAT planning limit (degC)
+    --max-pftank2t MAX_PFTANK2T
+                          PFTANK2T planning limit (degF)
     --n-ccd N_CCD         Number of ACIS CCDs
     --max-dwell-ksec MAX_DWELL_KSEC
                           Max allowed dwell time (ksec)
@@ -135,16 +145,19 @@ The constraint simulation and plot generation is done with ``pyger sim``.  First
     --plot-title PLOT_TITLE
                           Title on output plot
 
-Then run it, which takes about 15 seconds for the default settings::
+Then run it, which takes about 25 seconds for the default settings::
 
-  % pyger sim --start 2011:180 --n-sim 500 --max-tcylaft6 98 --plot-file constr_2010180.png
-  MINUS_Z: calculating start temps for 120 dwells
+  MINUS_Z: calculating start temps for 107 dwells
   MINUS_Z: simulating 500 dwells
-  PSMC: calculating start temps for 120 dwells
+  PSMC: calculating start temps for 107 dwells
   PSMC: simulating 500 dwells
-  PLINE: calculating warm time for 120 dwells
+  PLINE: calculating warm time for 107 dwells
   PLINE: simulating 500 dwells
-  Writing constraint plot file constr_2010180.png
+  DPA: calculating start temps for 107 dwells
+  DPA: simulating 500 dwells
+  TANK: calculating start temps for 107 dwells
+  TANK: simulating 500 dwells
+  Writing constraint plot file constr_2013001.png
 
 Note that the ``--start`` parameter can be specified in any valid  `DateTime format`_.
 
