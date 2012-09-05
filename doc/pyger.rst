@@ -23,6 +23,12 @@ Classes
    :inherited-members:
    :undoc-members:
 
+.. autoclass:: ConstraintDPA
+   :show-inheritance:
+   :members:
+   :inherited-members:
+   :undoc-members:
+
 .. autoclass:: ConstraintMinusZ
    :show-inheritance:
    :members:
@@ -40,3 +46,10 @@ Classes
    :members:
    :inherited-members:
    :undoc-members:
+
+.. autoclass:: ConstraintTank
+   :show-inheritance:
+   :members:
+   :inherited-members:
+   :undoc-members:
+
