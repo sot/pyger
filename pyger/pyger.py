@@ -237,43 +237,30 @@ class ConstraintMinusZ(ConstraintModel):
 
 class ConstraintDPA(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
-        self.model_cache = {}
         self.n_ccd = n_ccd
         model_spec = os.path.join(pkg_dir, 'dpa_model_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
-        ConstraintModel.__init__(self, 'dpa', sim_inputs, limits, max_dwell_ksec)
+        ConstraintModel.__init__(self, 'dpa', sim_inputs, limits,
+                                 max_dwell_ksec)
 
     def calc_model(self, states, times, T0s, state_only=False, cache=True):
-        key = tuple(states.tolist())
-        model = self.model_cache.get(key)
-        if not model:
-            model = xija.ThermalModel('dpa', start=states['tstart'][0],
-                                      stop=states['tstop'][-1],
-                                      model_spec=self.model_spec)
-            state_times = np.array([states['tstart'], states['tstop']])
-            model.comp['sim_z'].set_data(states['simpos'], state_times)
-            model.comp['eclipse'].set_data(False)
-            model.comp['1dpamzt'].set_data(T0s[0])
-            model.comp['dpa_power'].set_data(0.0)
+        model = xija.ThermalModel('dpa', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
 
-            for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
-                model.comp[name].set_data(states[name], state_times)
-            model.make()
-        else:
-            print 'Cache hit'
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['sim_z'].set_data(states['simpos'], state_times)
+        model.comp['eclipse'].set_data(False)
+        model.comp['1dpamzt'].set_data(T0s[0])
+        model.comp['dpa_power'].set_data(0.0)
 
-        model.comp['pitch'].dvals[:] = states['pitch']
-        model.comp['pitch'].mvals[:] = states['pitch']
-        del model.comp['solarheat__1dpamzt'].pitches
-        model.comp['1dpamzt'].dvals[:] = T0s[0]
-        model.comp['1dpamzt'].mvals[:] = T0s[0]
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+            model.comp[name].set_data(states[name], state_times)
 
+        model.make()
         model.calc()
         T_dpa = Ska.Numpy.interpolate(model.comp['1dpamzt'].mvals,
                                       xin=model.times, xout=times, sorted=True)
-        if cache and key not in self.model_cache:
-            self.model_cache[key] = model
-            print 'Cache len =', len(self.model_cache)
 
         return np.vstack([T_dpa])
 
@@ -282,6 +269,37 @@ class ConstraintDPA(ConstraintModel):
                    pitch1, 75000)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
                  'clocking', 'pitch', 'simpos')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintTank(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+        model_spec = os.path.join(pkg_dir, 'pftank2t_model_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'tank', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def calc_model(self, states, times, T0s, state_only=False):
+        model = xija.ThermalModel('tank', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['pitch'].set_data(states['pitch'], state_times)
+        model.comp['eclipse'].set_data(False)
+        model.comp['pf0tank2t'].set_data(T0s[0])
+        model.comp['pftank2t'].set_data(T0s[0])
+
+        model.make()
+        model.calc()
+        T_tank = Ska.Numpy.interpolate(model.comp['pftank2t'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+
+        return np.vstack([T_tank])
+
+    def get_states1(self, start, stop, pitch1):
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
 
 
@@ -306,8 +324,8 @@ class ConstraintPSMC(ConstraintModel):
 
     def calc_dwell1_T0s(self, start):
         """Calculate the starting temperature vectors for the ensemble of pitch
-        profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
-        values."""
+        profiles at the given ``start`` time.  Creates
+        sim_inputs[]['dwell1_T0s'] values."""
 
         logger.info('{0}: calculating start temps for {1} dwells'.format(
             self.name.upper(), len(self.sim_inputs)))
@@ -316,7 +334,8 @@ class ConstraintPSMC(ConstraintModel):
                                        sim_input['T1s']['1pdeaat']]
 
 def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
-    """Make a simple plot of the dwells and dwell statistics for the given ``constraint``.
+    """Make a simple plot of the dwells and dwell statistics for the given
+    ``constraint``.
 
     :param constraint: ConstraintModel object (e.g. constraints['all'])
     :param plot_title: plot title
@@ -334,8 +353,9 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     dwell1_stats = constraint.dwell1_stats
     plt.figure(figure, figsize=(6,4))
     plt.clf()
-    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline', '1dpamzt')
-    colors = ('r', 'g', 'k', 'c', 'b', 'm')
+    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline',
+             '1dpamzt', 'pftank2t')
+    colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y')
     for name, color in zip(names, colors):
         ok = dwells1['constraint_name'] == name
         plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color,
@@ -376,13 +396,14 @@ def calc_constraints(start='2011:001',
                      max_tcylaft6=99.0,
                      max_1pdeaat=52.5,
                      max_1dpamzt=32.5,
+                     max_pftank2t=93.0,
                      n_ccd=6,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
                      max_pitch=169,
                      bin_pitch=2,
-                     constraint_models=('minus_z', 'psmc', 'pline', 'dpa'),
+                     constraint_models=('minus_z', 'psmc', 'pline', 'dpa', 'tank'),
                      ):
     """
     Calculate allowed dwell times coming out of perigee given a set of
@@ -402,7 +423,7 @@ def calc_constraints(start='2011:001',
     :param min_pitch: minimum pitch in simulations (default=45)
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
-    :param constraint_models: names of constraint models (default=('minus_z', 'psmc', 'pline', 'dpa'))
+    :param constraint_models: constraint models (default=('minus_z', 'psmc', 'pline', 'dpa', 'tank'))
 
     :returns: dict of computed constraint model objects
     """
@@ -435,7 +456,7 @@ def calc_constraints(start='2011:001',
                                            n_ccd=n_ccd)
     if 'tank' in constraint_models:
         constraints['tank'] = ConstraintTank(sim_inputs,
-                                           limits={'pftank2': FtoC(max_pftank2t)},
+                                           limits={'pftank2t': FtoC(max_pftank2t)},
                                            max_dwell_ksec=max_dwell_ksec)
     if 'pline' in constraint_models:
         constraints['pline'] = ConstraintPline(sim_inputs,
