@@ -8,10 +8,14 @@ import cPickle as pickle
 import re
 
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 import Ska.Numpy
 from Chandra.Time import DateTime
 import asciitable
+
 import xija
 
 from . import clogging
@@ -287,7 +291,10 @@ class ConstraintTank(ConstraintModel):
         state_times = np.array([states['tstart'], states['tstop']])
         model.comp['pitch'].set_data(states['pitch'], state_times)
         model.comp['eclipse'].set_data(False)
-        model.comp['pf0tank2t'].set_data(T0s[0])
+        # Empirical formula from settling values for pf0tank2t and pftank2t.
+        # The two values converge at 22 C (pitch > 140), while at pitch = 120
+        # pftank2t = 39 and pf0tank2t = 36.
+        model.comp['pf0tank2t'].set_data(22 + 14. / 17. * (T0s[0] - 22.0))
         model.comp['pftank2t'].set_data(T0s[0])
 
         model.make()
@@ -342,7 +349,6 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     :param plot_file: output file for plot
     :param figure: matplotlib figure ID (default=1)
     """
-    import matplotlib.pyplot as plt
     plt.rc("axes", labelsize=10, titlesize=12)
     plt.rc("xtick", labelsize=10)
     plt.rc("ytick", labelsize=10)
@@ -367,7 +373,7 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     plt.xlabel('Pitch (deg)')
     plt.ylabel('Dwell (ksec)')
     plt.legend(loc='upper center')
-    plt.ylim(0, constraint.max_dwell_ksec * 1.05)
+    plt.ylim(constraint.max_dwell_ksec * -0.05, constraint.max_dwell_ksec * 1.05)
     plt.subplots_adjust(bottom=0.12)
     if plot_file:
         logger.info('Writing constraint plot file {0}'.format(plot_file))
