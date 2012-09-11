@@ -24,14 +24,8 @@ def K2F(k):
     return (k-273.15) * 1.8 + 32.
 
 def get_states(datestart, datestop, state_vals):
-    db = Ska.DBI.DBI(dbi='sybase', server='sybase', user='aca_read', database='aca')
-    states = db.fetchall("""select * from cmd_states
-                            where datestop > '%s' and
-                            datestart < '%s'
-                            order by datestart""" %
-                         (datestart, datestop))
-    db.conn.close()
-    states = cmd_states.reduce_states(states, cols=state_vals, allow_identical=False)
+    state_vals = [x.encode('ascii') for x in state_vals]
+    states = cmd_states.fetch_states(datestart, datestop, state_vals)
 
     bad = states['pitch'] > 169.9
     states['pitch'][bad] = 169.9
