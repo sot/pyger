@@ -19,7 +19,6 @@ import asciitable
 import xija
 
 from . import clogging
-from . import nmass
 from . import twodof
 from . import characteristics
 
@@ -222,21 +221,48 @@ class ConstraintPline(ConstraintModel):
                 warm_dwell += dwell
             sim_input['dwell1_T0s'] = [warm_dwell, warm_pitch_max]
 
+
 class ConstraintMinusZ(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
-        self.pars = json.load(open(os.path.join(pkg_dir, 'pars_minusz.json')))
-        ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits, max_dwell_ksec)
+        model_spec = os.path.join(pkg_dir, 'minusz_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits,
+                                 max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False, cache=True):
-        states_dwell_ksec = (states[-1][1] - states[0][0]) / 1000.0
-        max_dwell_ksec = max(self.max_dwell_ksec, states_dwell_ksec * 1.05)
-        Ts = nmass.calc_model(self.pars, states, times, T0s, self.msids, cache=cache,
-                              state_only=state_only, max_dwell_ksec=max_dwell_ksec)
-        return Ts
+    def calc_model(self, states, times, T0s, state_only=False):
+        model = xija.ThermalModel('minus_z', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['pitch'].set_data(states['pitch'], state_times)
+        model.comp['eclipse'].set_data(False)
+        model.comp['tcylaft6'].set_data(T0s[0])
+        model.comp['tcylfmzm'].set_data(T0s[1])
+        model.comp['tephin'].set_data(T0s[2])
+        model.comp['tfssbkt1'].set_data(T0s[3])
+        model.comp['tmzp_my'].set_data(T0s[4])
+
+        model.make()
+        model.calc()
+
+        T_tcylaft6 = Ska.Numpy.interpolate(model.comp['tcylaft6'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+        T_tcylfmzm = Ska.Numpy.interpolate(model.comp['tcylfmzm'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+        T_tephin = Ska.Numpy.interpolate(model.comp['tephin'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+        T_tfssbkt1 = Ska.Numpy.interpolate(model.comp['tfssbkt1'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+        T_tmzp_my = Ska.Numpy.interpolate(model.comp['tmzp_my'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+
+        return np.vstack([T_tcylaft6, T_tcylfmzm, T_tephin, T_tfssbkt1, T_tmzp_my])
 
     def get_states1(self, start, stop, pitch1):
-        return np.rec.fromrecords(((start.secs, stop.secs, pitch1),),
-                                  names=('tstart', 'tstop', 'pitch'))
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
+        return np.rec.fromrecords(states, names=names)
 
 
 class ConstraintDPA(ConstraintModel):
@@ -277,7 +303,7 @@ class ConstraintDPA(ConstraintModel):
 
 
 class ConstraintTank(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec):
         model_spec = os.path.join(pkg_dir, 'pftank2t_model_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
         ConstraintModel.__init__(self, 'tank', sim_inputs, limits,
