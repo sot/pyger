@@ -11,6 +11,17 @@
             "tmzp_my"
         ]
     }, 
+    "minus_yz": {
+        "state_cols": [
+            "pitch"
+        ], 
+        "msids": [
+            "pmtank3t", 
+            "tmzp_my", 
+            "tephin", 
+            "tcylaft6"
+        ]
+    }, 
     "dpa": {
         "state_cols": [
             "pitch", 

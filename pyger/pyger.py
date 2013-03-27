@@ -21,6 +21,7 @@ import xija
 from . import clogging
 from . import twodof
 from . import characteristics
+from . import pygertest
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
@@ -265,6 +266,49 @@ class ConstraintMinusZ(ConstraintModel):
         return np.rec.fromrecords(states, names=names)
 
 
+class ConstraintMinusYZ(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+        model_spec = os.path.join(pkg_dir, 'minusyz_model.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'minus_yz', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def calc_model(self, states, times, T0s, state_only=False):
+        model = xija.ThermalModel('minus_yz', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['pitch'].set_data(states['pitch'], state_times)
+        model.comp['eclipse'].set_data(False)
+        model.comp['pmtank3t'].set_data(T0s[0])
+        model.comp['tmzp_my'].set_data(T0s[1])
+        model.comp['tephin'].set_data(T0s[2])
+        model.comp['tcylaft6'].set_data(T0s[3])
+        model.comp['pseudo_0'].set_data(26)
+        model.comp['pseudo_1'].set_data(26)
+
+        model.make()
+        model.calc()
+
+        T_pmtank3t = Ska.Numpy.interpolate(model.comp['pmtank3t'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+        T_tmzp_my = Ska.Numpy.interpolate(model.comp['tmzp_my'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+        T_tephin = Ska.Numpy.interpolate(model.comp['tephin'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+        T_tcylaft6 = Ska.Numpy.interpolate(model.comp['tcylaft6'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+
+        return np.vstack([T_pmtank3t, T_tmzp_my, T_tephin, T_tcylaft6])
+
+    def get_states1(self, start, stop, pitch1):
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
+        return np.rec.fromrecords(states, names=names)
+
+
+
 class ConstraintDPA(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
         self.n_ccd = n_ccd
@@ -424,8 +468,8 @@ def merge_dwells1(constraints):
 def calc_constraints(start='2011:001',
                      n_sim=500,
                      dt=1000.,
-                     max_tephin=138.0,
-                     max_tcylaft6=99.0,
+                     max_tephin=147.0,
+                     max_tcylaft6=102.0,
                      max_1pdeaat=52.5,
                      max_1dpamzt=32.5,
                      max_pftank2t=93.0,
@@ -435,7 +479,7 @@ def calc_constraints(start='2011:001',
                      min_pitch=45,
                      max_pitch=169,
                      bin_pitch=2,
-                     constraint_models=('minus_z', 'psmc', 'pline', 'dpa', 'tank'),
+                     constraint_models=('minus_yz', 'psmc', 'pline', 'dpa', 'tank'),
                      ):
     """
     Calculate allowed dwell times coming out of perigee given a set of
@@ -455,7 +499,7 @@ def calc_constraints(start='2011:001',
     :param min_pitch: minimum pitch in simulations (default=45)
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
-    :param constraint_models: constraint models (default=('minus_z', 'psmc', 'pline', 'dpa', 'tank'))
+    :param constraint_models: constraint models (default=('minus_yz', 'psmc', 'pline', 'dpa', 'tank'))
 
     :returns: dict of computed constraint model objects
     """
@@ -468,11 +512,18 @@ def calc_constraints(start='2011:001',
         logger.error('ERROR: simulation inputs file "{0}" not found.'
                      '  Run "pyger make" or "pyger make --help".'.format(sim_file))
         sys.exit(1)
-    i_sims = np.random.randint(len(sim_inputs['minus_z']), size=n_sim)
+
+    numsims = len(sim_inputs[sim_inputs.keys()[0]])
+    i_sims = np.random.randint(numsims, size=n_sim)
     pitches1 = np.random.uniform(min_pitch, max_pitch, size=n_sim)
     constraints = {}
     if 'minus_z' in constraint_models:
         constraints['minus_z'] = ConstraintMinusZ(sim_inputs,
+                                                  limits=dict(tephin=FtoC(max_tephin),
+                                                              tcylaft6=FtoC(max_tcylaft6)),
+                                                  max_dwell_ksec=max_dwell_ksec)
+    if 'minus_yz' in constraint_models:
+        constraints['minus_yz'] = ConstraintMinusYZ(sim_inputs,
                                                   limits=dict(tephin=FtoC(max_tephin),
                                                               tcylaft6=FtoC(max_tcylaft6)),
                                                   max_dwell_ksec=max_dwell_ksec)
