@@ -21,7 +21,6 @@ import xija
 from . import clogging
 from . import twodof
 from . import characteristics
-from . import pygertest
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
@@ -513,8 +512,8 @@ def calc_constraints(start='2011:001',
                      '  Run "pyger make" or "pyger make --help".'.format(sim_file))
         sys.exit(1)
 
-    numsims = len(sim_inputs[sim_inputs.keys()[0]])
-    i_sims = np.random.randint(numsims, size=n_sim)
+    n_sim_inputs = len(sim_inputs[sim_inputs.keys()[0]])
+    i_sims = np.random.randint(n_sim_inputs, size=n_sim)
     pitches1 = np.random.uniform(min_pitch, max_pitch, size=n_sim)
     constraints = {}
     if 'minus_z' in constraint_models:
