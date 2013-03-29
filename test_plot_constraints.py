@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 
 import matplotlib.pyplot as plt
-import pickle 
+import cPickle as pickle
 
 import pyger
 
@@ -84,7 +85,9 @@ def plot_constraints(constraints):
         ax.set_ylim(constraints[key].max_dwell_ksec * -0.05, 
                 constraints[key].max_dwell_ksec * 1.05)
 
-    fig.savefig('Pyger_Test_Plot_Version_%s.png'%pyger.__version__)
+    outfile = 'test_plot_constraints_{}.png'.format(pyger.__version__)
+    print('\nSaving plots to {}'.format(outfile))
+    fig.savefig(outfile)
 
 
 def runtest():
@@ -96,7 +99,7 @@ def runtest():
 
 
 if __name__ == '__main__':
+    print('******* Running test_plot_constraints *********')
+    print('Pyger module file is {}\n'.format(pyger.__file__))
+
     runtest()
-
-
-
