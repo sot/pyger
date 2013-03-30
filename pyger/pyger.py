@@ -284,8 +284,8 @@ class ConstraintMinusYZ(ConstraintModel):
         model.comp['tmzp_my'].set_data(T0s[1])
         model.comp['tephin'].set_data(T0s[2])
         model.comp['tcylaft6'].set_data(T0s[3])
-        model.comp['pseudo_0'].set_data(26)
-        model.comp['pseudo_1'].set_data(26)
+        model.comp['pseudo_0'].set_data(T0s[3]-4)
+        model.comp['pseudo_1'].set_data(T0s[0])
 
         model.make()
         model.calc()
