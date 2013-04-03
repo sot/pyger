@@ -29,6 +29,12 @@ Classes
    :inherited-members:
    :undoc-members:
 
+.. autoclass:: ConstraintMinusYZ
+   :show-inheritance:
+   :members:
+   :inherited-members:
+   :undoc-members:
+
 .. autoclass:: ConstraintMinusZ
    :show-inheritance:
    :members:
