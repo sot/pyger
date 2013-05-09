@@ -468,7 +468,7 @@ def merge_dwells1(constraints):
     return dwells1
 
 
-def calc_constraints(start='2011:001',
+def calc_constraints(start='2013:001',
                      n_sim=500,
                      dt=1000.,
                      max_tephin=147.0,
@@ -476,7 +476,7 @@ def calc_constraints(start='2011:001',
                      max_1pdeaat=52.5,
                      max_1dpamzt=32.5,
                      max_pftank2t=93.0,
-                     n_ccd=6,
+                     n_ccd=5,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
