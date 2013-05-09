@@ -9,11 +9,8 @@ import numpy
 import Ska.engarchive.fetch as fetch
 from Chandra.Time import DateTime
 import Chandra.cmd_states as cmd_states
-import Ska.DBI
 
 from . import clogging
-from . import characteristics
-psmc_powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
 
 logger = clogging.config_logger('make_sim_inputs')
 
@@ -91,8 +88,6 @@ def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
                 out_state = dict(tstart=max(state['tstart'], tstart), tstop=min(state['tstop'], tstop))
                 for state_col in state_cols:
                     out_state[state_col] = state[state_col]
-                if name == 'psmc':   # special case pseudo- state col
-                    out_state['power'] = psmc_powers[state['ccd_count'], 1, 1]
                 out_states.append(out_state)
 
             sim_inputs[name].append(dict(msids=msids, tstart=tstart, tstop=tstop, T0s=T0s, T1s=T1s, states=out_states))

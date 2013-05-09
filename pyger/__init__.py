@@ -50,7 +50,7 @@ def get_options(args=None):
                       help="1PDEAAT planning limit (degC)")
     parser_sim.add_argument("--max-1dpamzt",
                       type=float,
-                      help="1PDEAAT planning limit (degC)")
+                      help="1DPAMZT planning limit (degC)")
     parser_sim.add_argument("--max-pftank2t",
                       type=float,
                       help="PFTANK2T planning limit (degF)")
@@ -87,8 +87,8 @@ def main(args=None):
             plot_title = (opt.plot_title or
                           '{0} Tephin:{1:.0f} Tcylaft6:{2:.0f} pftank2t:{3:.0f} N_ccd:{4:d}'.format(
                               constraints['all'].start.date[:8],
-                              CtoF(constraints['minus_z'].limits['tephin']),
-                              CtoF(constraints['minus_z'].limits['tcylaft6']),
+                              CtoF(constraints['minus_yz'].limits['tephin']),
+                              CtoF(constraints['minus_yz'].limits['tcylaft6']),
                               CtoF(constraints['tank'].limits['pftank2t']),
                               constraints['psmc'].n_ccd
                               ))
