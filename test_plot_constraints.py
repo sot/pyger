@@ -54,7 +54,7 @@ def plot_constraints(constraints):
         ax = fig.add_axes(loc, axisbg=plotinfo['bgcolor'])
 
         # Get individual limit items and dwell data
-        #limitedlist = list_individual_constraints(constraints[key])
+        # limitedlist = list_individual_constraints(constraints[key])
         dwells1 = constraints[key].dwells1
         dwell1_stats = constraints[key].dwell1_stats
         limitedlist = list(set(dwells1['constraint_name']))
