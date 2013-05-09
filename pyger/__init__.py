@@ -32,37 +32,37 @@ def get_options(args=None):
     # create the parser for the "sim" command to run a constraint simulation
     parser_sim = subparsers.add_parser('sim', help='Simulate constraints')
     parser_sim.add_argument("--start",
-                      help="Simulation start time")
+                            help="Simulation start time")
     parser_sim.add_argument("--n-sim",
-                      type=int,
-                      help="Number of simulation points")
+                            type=int,
+                            help="Number of simulation points")
     parser_sim.add_argument("--dt",
-                      type=float,
-                      help="Delta time for sims (sec)")
+                            type=float,
+                            help="Delta time for sims (sec)")
     parser_sim.add_argument("--max-tephin",
-                      type=float,
-                      help="TEPHIN planning limit (degF)")
+                            type=float,
+                            help="TEPHIN planning limit (degF)")
     parser_sim.add_argument("--max-tcylaft6",
-                      type=float,
-                      help="TCYLAFT6 planning limit (degF)")
+                            type=float,
+                            help="TCYLAFT6 planning limit (degF)")
     parser_sim.add_argument("--max-1pdeaat",
-                      type=float,
-                      help="1PDEAAT planning limit (degC)")
+                            type=float,
+                            help="1PDEAAT planning limit (degC)")
     parser_sim.add_argument("--max-1dpamzt",
-                      type=float,
-                      help="1DPAMZT planning limit (degC)")
+                            type=float,
+                            help="1DPAMZT planning limit (degC)")
     parser_sim.add_argument("--max-pftank2t",
-                      type=float,
-                      help="PFTANK2T planning limit (degF)")
+                            type=float,
+                            help="PFTANK2T planning limit (degF)")
     parser_sim.add_argument("--n-ccd",
-                      type=int,
-                      help="Number of ACIS CCDs")
+                            type=int,
+                            help="Number of ACIS CCDs")
     parser_sim.add_argument("--max-dwell-ksec",
-                      type=float,
-                      help="Max allowed dwell time (ksec)")
+                            type=float,
+                            help="Max allowed dwell time (ksec)")
     parser_sim.add_argument("--sim-file",
-                      default="sim_inputs.pkl",
-                      help="Simulation inputs pickle file")
+                            default="sim_inputs.pkl",
+                            help="Simulation inputs pickle file")
     parser_sim.add_argument("--plot-file",
                             default="constraints.png",
                             help="Output plot file name")
@@ -91,7 +91,7 @@ def main(args=None):
                               CtoF(constraints['minus_yz'].limits['tcylaft6']),
                               CtoF(constraints['tank'].limits['pftank2t']),
                               constraints['psmc'].n_ccd
-                              ))
+                          ))
             plot_dwells1(constraints['all'],
                          plot_title=plot_title,
                          plot_file=opt.plot_file)

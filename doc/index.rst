@@ -181,7 +181,7 @@ This function has a lot of parameters but all of them have sensible defaults so
 normally only a few need to be set.  Here is a sample script which is available on the
 HEAD and GRETA networks as ``/proj/sot/ska/share/pyger/examples/plot_by_month.py``::
 
-  """Plot best-case constraints for 2011 in 2-month intervals"""
+  """Plot best-case constraints for 2012 in 2-month intervals"""
   import matplotlib.pyplot as plt
 
   import pyger

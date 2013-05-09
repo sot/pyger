@@ -17,8 +17,10 @@ logger = clogging.config_logger('make_sim_inputs')
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
 
+
 def K2F(k):
-    return (k-273.15) * 1.8 + 32.
+    return (k - 273.15) * 1.8 + 32.
+
 
 def get_states(datestart, datestop, state_vals):
     state_vals = [x.encode('ascii') for x in state_vals]
@@ -28,6 +30,7 @@ def get_states(datestart, datestop, state_vals):
     states['pitch'][bad] = 169.9
 
     return states
+
 
 def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
     stop = DateTime(stop or DateTime().secs - 86400. * 10)
@@ -72,7 +75,7 @@ def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
         sim_start_times = sim_stop_times - 86400 * n_days
         for msid in msids:
             logger.info('  Fetching {0} telemetry'.format(msid))
-            dats[msid] = fetch.MSID(msid, start.secs - 86400*(n_days+1), stop.secs, stat='5min')
+            dats[msid] = fetch.MSID(msid, start.secs - 86400 * (n_days + 1), stop.secs, stat='5min')
             idx_starts[msid] = numpy.searchsorted(dats[msid].times, sim_start_times)
             idx_stops[msid] = numpy.searchsorted(dats[msid].times, sim_stop_times)
 
@@ -85,14 +88,15 @@ def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
             T1s = dict((x, dats[x].vals[idx_stops[x][i]] - 273.15) for x in msids)
             out_states = []
             for state in states[ok]:
-                out_state = dict(tstart=max(state['tstart'], tstart), tstop=min(state['tstop'], tstop))
+                out_state = dict(tstart=max(state[
+                                 'tstart'], tstart), tstop=min(state['tstop'], tstop))
                 for state_col in state_cols:
                     out_state[state_col] = state[state_col]
                 out_states.append(out_state)
 
-            sim_inputs[name].append(dict(msids=msids, tstart=tstart, tstop=tstop, T0s=T0s, T1s=T1s, states=out_states))
+            sim_inputs[name].append(dict(
+                msids=msids, tstart=tstart, tstop=tstop, T0s=T0s, T1s=T1s, states=out_states))
 
     logger.info('Writing simulation inputs to {0}'.format(outfile))
     with open(outfile, 'w') as f:
         pickle.dump(sim_inputs, f, protocol=-1)
-
