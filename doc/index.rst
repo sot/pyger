@@ -179,7 +179,7 @@ The key function which is used to perform a constraint simulation is :func:`pyge
 
 This function has a lot of parameters but all of them have sensible defaults so
 normally only a few need to be set.  Here is a sample script which is available on the
-HEAD network as ``/proj/sot/ska/share/pyger/examples/plot_by_month.py``::
+HEAD and GRETA networks as ``/proj/sot/ska/share/pyger/examples/plot_by_month.py``::
 
   """Plot best-case constraints for 2011 in 2-month intervals"""
   import matplotlib.pyplot as plt
