@@ -19,8 +19,6 @@ import asciitable
 import xija
 
 from . import clogging
-from . import twodof
-from . import characteristics
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
@@ -86,7 +84,6 @@ class ConstraintModel(object):
         self.calc_dwell1_T0s(start)
         sim_inputs = self.sim_inputs
         dwells1 = []
-        n_times = len(times)
 
         logger.info('{0}: simulating {1} dwells'.format(self.name.upper(), len(i_sims)))
         for i_sim, pitch1 in zip(i_sims, pitches1):
@@ -381,33 +378,40 @@ class ConstraintTank(ConstraintModel):
 
 class ConstraintPSMC(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
-        self.pars = characteristics.model_par
         self.n_ccd = n_ccd
-        self.powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
-        ConstraintModel.__init__(self, 'psmc', sim_inputs, limits, max_dwell_ksec)
+        model_spec = os.path.join(pkg_dir, 'psmc_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'psmc', sim_inputs, limits,
+                                 max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False, cache=False):
-        pin0 = T0s[0]
-        dea0 = T0s[1]
-        T_pin, T_dea = twodof.calc_twodof_model(states, pin0, dea0, times,
-                                                par=self.pars, dt=1000)
-        return np.vstack([T_pin, T_dea])
+    def calc_model(self, states, times, T0s, state_only=False, cache=True):
+        model = xija.ThermalModel('psmc', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['sim_z'].set_data(states['simpos'], state_times)
+        model.comp['pin1at'].set_data(T0s[0] - 10.5) # pin1at ~ 1pdeaat - 10.5 C
+        model.comp['1pdeaat'].set_data(T0s[0])
+        model.comp['dpa_power'].set_data(0)
+
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+            model.comp[name].set_data(states[name], state_times)
+
+        model.make()
+        model.calc()
+        T_psmc = Ska.Numpy.interpolate(model.comp['1pdeaat'].mvals,
+                                      xin=model.times, xout=times, sorted=True)
+
+        return np.vstack([T_psmc])
 
     def get_states1(self, start, stop, pitch1):
-        states = [(start.secs, stop.secs, self.powers[self.n_ccd, 1, 1], pitch1, 75000)]
-        return np.rec.fromrecords(states,
-                                  names=('tstart', 'tstop', 'power', 'pitch', 'simpos'))
+        states = [(start.secs, stop.secs, self.n_ccd, self.n_ccd, 1, 1,
+                   pitch1, 75000)]
+        names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
+                 'clocking', 'pitch', 'simpos')
+        return np.rec.fromrecords(states, names=names)
 
-    def calc_dwell1_T0s(self, start):
-        """Calculate the starting temperature vectors for the ensemble of pitch
-        profiles at the given ``start`` time.  Creates
-        sim_inputs[]['dwell1_T0s'] values."""
-
-        logger.info('{0}: calculating start temps for {1} dwells'.format(
-            self.name.upper(), len(self.sim_inputs)))
-        for sim_input in self.sim_inputs:
-            sim_input['dwell1_T0s'] = [sim_input['T1s']['1pin1at'],
-                                       sim_input['T1s']['1pdeaat']]
 
 def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     """Make a simple plot of the dwells and dwell statistics for the given
