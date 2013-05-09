@@ -1,4 +1,4 @@
-"""Plot best-case constraints for 2011 in 2-month intervals"""
+"""Plot best-case constraints for 2012 in 2-month intervals"""
 import matplotlib.pyplot as plt
 
 import pyger
