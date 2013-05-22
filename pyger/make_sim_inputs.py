@@ -32,7 +32,7 @@ def get_states(datestart, datestop, state_vals):
     return states
 
 
-def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
+def make_sim_inputs(start=None, stop=None, sim_file='sim_inputs.pkl', n_days=3):
     stop = DateTime(stop or DateTime().secs - 86400. * 10)
     start = DateTime(start or DateTime().secs - 86400. * 365)
     logger.info('Creating pyger simulation inputs covering {0} to {1}'.format(
@@ -97,6 +97,6 @@ def make_sim_inputs(start=None, stop=None, outfile='sim_inputs.pkl', n_days=3):
             sim_inputs[name].append(dict(
                 msids=msids, tstart=tstart, tstop=tstop, T0s=T0s, T1s=T1s, states=out_states))
 
-    logger.info('Writing simulation inputs to {0}'.format(outfile))
-    with open(outfile, 'w') as f:
+    logger.info('Writing simulation inputs to {0}'.format(sim_file))
+    with open(sim_file, 'w') as f:
         pickle.dump(sim_inputs, f, protocol=-1)
