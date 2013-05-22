@@ -55,13 +55,13 @@
         "state_cols": [
             "pitch", 
             "ccd_count", 
+            "fep_count",
             "clocking", 
             "vid_board",
             "simpos"
         ], 
         "msids": [
-            "1pin1at",
-            "1pdeaat" 
+            "1pdeaat"
         ]
     }
 }

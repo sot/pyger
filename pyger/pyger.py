@@ -19,13 +19,12 @@ import asciitable
 import xija
 
 from . import clogging
-from . import twodof
-from . import characteristics
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
 __version__ = open(os.path.join(pkg_dir, 'VERSION')).read().strip()
 logger = clogging.config_logger('pyger')
+
 
 def CtoF(cs):
     try:
@@ -33,11 +32,12 @@ def CtoF(cs):
     except TypeError:
         return cs * 1.8 + 32
 
+
 def FtoC(cs):
     try:
-        return [(c-32) / 1.8 for c in cs]
+        return [(c - 32) / 1.8 for c in cs]
     except TypeError:
-        return (cs-32) / 1.8
+        return (cs - 32) / 1.8
 
 
 class ConstraintModel(object):
@@ -79,14 +79,13 @@ class ConstraintModel(object):
             T0s = np.array([sim_input['T0s'][x] for x in self.msids])
             Ts = self.calc_model(np_states, times, T0s, state_only=True)
 
-            sim_input['dwell1_T0s'] = Ts[:,-1]
+            sim_input['dwell1_T0s'] = Ts[:, -1]
 
     def calc_dwells1(self, start, stop, times, pitches1, i_sims):
         self.start = start
         self.calc_dwell1_T0s(start)
         sim_inputs = self.sim_inputs
         dwells1 = []
-        n_times = len(times)
 
         logger.info('{0}: simulating {1} dwells'.format(self.name.upper(), len(i_sims)))
         for i_sim, pitch1 in zip(i_sims, pitches1):
@@ -158,7 +157,6 @@ class ConstraintPline(ConstraintModel):
                                    cold_pitch_dur=hour_min_to_sec(guideline[colname])))
         self.limits = limits
 
-
     def calc_dwells1(self, start, stop, times, pitches1, i_sims):
         self.start = start
         self.calc_dwell1_T0s(start)
@@ -173,7 +171,7 @@ class ConstraintPline(ConstraintModel):
                 if (warm_dwell >= limit['warm_dwell'] and
                     warm_pitch_max <= limit['warm_pitch_max'] and
                     pitch1 >= limit['cold_pitch_min'] and
-                    pitch1 < limit['cold_pitch_max']):
+                        pitch1 < limit['cold_pitch_max']):
                     dwell_dur = limit['cold_pitch_dur']
                     constraint_name = 'pline'
                     break
@@ -247,15 +245,15 @@ class ConstraintMinusZ(ConstraintModel):
         model.calc()
 
         T_tcylaft6 = Ska.Numpy.interpolate(model.comp['tcylaft6'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                           xin=model.times, xout=times, sorted=True)
         T_tcylfmzm = Ska.Numpy.interpolate(model.comp['tcylfmzm'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                           xin=model.times, xout=times, sorted=True)
         T_tephin = Ska.Numpy.interpolate(model.comp['tephin'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                         xin=model.times, xout=times, sorted=True)
         T_tfssbkt1 = Ska.Numpy.interpolate(model.comp['tfssbkt1'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                           xin=model.times, xout=times, sorted=True)
         T_tmzp_my = Ska.Numpy.interpolate(model.comp['tmzp_my'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                          xin=model.times, xout=times, sorted=True)
 
         return np.vstack([T_tcylaft6, T_tcylfmzm, T_tephin, T_tfssbkt1, T_tmzp_my])
 
@@ -284,20 +282,20 @@ class ConstraintMinusYZ(ConstraintModel):
         model.comp['tmzp_my'].set_data(T0s[1])
         model.comp['tephin'].set_data(T0s[2])
         model.comp['tcylaft6'].set_data(T0s[3])
-        model.comp['pseudo_0'].set_data(T0s[3]-4)
+        model.comp['pseudo_0'].set_data(T0s[3] - 4)
         model.comp['pseudo_1'].set_data(T0s[0])
 
         model.make()
         model.calc()
 
         T_pmtank3t = Ska.Numpy.interpolate(model.comp['pmtank3t'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                           xin=model.times, xout=times, sorted=True)
         T_tmzp_my = Ska.Numpy.interpolate(model.comp['tmzp_my'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                          xin=model.times, xout=times, sorted=True)
         T_tephin = Ska.Numpy.interpolate(model.comp['tephin'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                         xin=model.times, xout=times, sorted=True)
         T_tcylaft6 = Ska.Numpy.interpolate(model.comp['tcylaft6'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                           xin=model.times, xout=times, sorted=True)
 
         return np.vstack([T_pmtank3t, T_tmzp_my, T_tephin, T_tcylaft6])
 
@@ -305,7 +303,6 @@ class ConstraintMinusYZ(ConstraintModel):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
-
 
 
 class ConstraintDPA(ConstraintModel):
@@ -369,7 +366,7 @@ class ConstraintTank(ConstraintModel):
         model.make()
         model.calc()
         T_tank = Ska.Numpy.interpolate(model.comp['pftank2t'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+                                       xin=model.times, xout=times, sorted=True)
 
         return np.vstack([T_tank])
 
@@ -381,33 +378,40 @@ class ConstraintTank(ConstraintModel):
 
 class ConstraintPSMC(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
-        self.pars = characteristics.model_par
         self.n_ccd = n_ccd
-        self.powers = dict((x[0:3], x[3]) for x in characteristics.psmc_power)
-        ConstraintModel.__init__(self, 'psmc', sim_inputs, limits, max_dwell_ksec)
+        model_spec = os.path.join(pkg_dir, 'psmc_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'psmc', sim_inputs, limits,
+                                 max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False, cache=False):
-        pin0 = T0s[0]
-        dea0 = T0s[1]
-        T_pin, T_dea = twodof.calc_twodof_model(states, pin0, dea0, times,
-                                                par=self.pars, dt=1000)
-        return np.vstack([T_pin, T_dea])
+    def calc_model(self, states, times, T0s, state_only=False, cache=True):
+        model = xija.ThermalModel('psmc', start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        model.comp['sim_z'].set_data(states['simpos'], state_times)
+        model.comp['pin1at'].set_data(T0s[0] - 10.5)  # pin1at ~ 1pdeaat - 10.5 C
+        model.comp['1pdeaat'].set_data(T0s[0])
+        model.comp['dpa_power'].set_data(0)
+
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+            model.comp[name].set_data(states[name], state_times)
+
+        model.make()
+        model.calc()
+        T_psmc = Ska.Numpy.interpolate(model.comp['1pdeaat'].mvals,
+                                       xin=model.times, xout=times, sorted=True)
+
+        return np.vstack([T_psmc])
 
     def get_states1(self, start, stop, pitch1):
-        states = [(start.secs, stop.secs, self.powers[self.n_ccd, 1, 1], pitch1, 75000)]
-        return np.rec.fromrecords(states,
-                                  names=('tstart', 'tstop', 'power', 'pitch', 'simpos'))
+        states = [(start.secs, stop.secs, self.n_ccd, self.n_ccd, 1, 1,
+                   pitch1, 75000)]
+        names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
+                 'clocking', 'pitch', 'simpos')
+        return np.rec.fromrecords(states, names=names)
 
-    def calc_dwell1_T0s(self, start):
-        """Calculate the starting temperature vectors for the ensemble of pitch
-        profiles at the given ``start`` time.  Creates
-        sim_inputs[]['dwell1_T0s'] values."""
-
-        logger.info('{0}: calculating start temps for {1} dwells'.format(
-            self.name.upper(), len(self.sim_inputs)))
-        for sim_input in self.sim_inputs:
-            sim_input['dwell1_T0s'] = [sim_input['T1s']['1pin1at'],
-                                       sim_input['T1s']['1pdeaat']]
 
 def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     """Make a simple plot of the dwells and dwell statistics for the given
@@ -426,7 +430,7 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
 
     dwells1 = constraint.dwells1
     dwell1_stats = constraint.dwell1_stats
-    plt.figure(figure, figsize=(6,4))
+    plt.figure(figure, figsize=(6, 4))
     plt.clf()
     names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline',
              '1dpamzt', 'pftank2t')
@@ -464,7 +468,7 @@ def merge_dwells1(constraints):
     return dwells1
 
 
-def calc_constraints(start='2011:001',
+def calc_constraints(start='2013:001',
                      n_sim=500,
                      dt=1000.,
                      max_tephin=147.0,
@@ -472,7 +476,7 @@ def calc_constraints(start='2011:001',
                      max_1pdeaat=52.5,
                      max_1dpamzt=32.5,
                      max_pftank2t=93.0,
-                     n_ccd=6,
+                     n_ccd=5,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
@@ -523,9 +527,9 @@ def calc_constraints(start='2011:001',
                                                   max_dwell_ksec=max_dwell_ksec)
     if 'minus_yz' in constraint_models:
         constraints['minus_yz'] = ConstraintMinusYZ(sim_inputs,
-                                                  limits=dict(tephin=FtoC(max_tephin),
-                                                              tcylaft6=FtoC(max_tcylaft6)),
-                                                  max_dwell_ksec=max_dwell_ksec)
+                                                    limits=dict(tephin=FtoC(max_tephin),
+                                                                tcylaft6=FtoC(max_tcylaft6)),
+                                                    max_dwell_ksec=max_dwell_ksec)
     if 'psmc' in constraint_models:
         constraints['psmc'] = ConstraintPSMC(sim_inputs,
                                              limits={'1pdeaat': max_1pdeaat},
@@ -538,8 +542,8 @@ def calc_constraints(start='2011:001',
                                            n_ccd=n_ccd)
     if 'tank' in constraint_models:
         constraints['tank'] = ConstraintTank(sim_inputs,
-                                           limits={'pftank2t': FtoC(max_pftank2t)},
-                                           max_dwell_ksec=max_dwell_ksec)
+                                             limits={'pftank2t': FtoC(max_pftank2t)},
+                                             max_dwell_ksec=max_dwell_ksec)
     if 'pline' in constraint_models:
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,
