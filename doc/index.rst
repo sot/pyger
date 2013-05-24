@@ -9,7 +9,7 @@ Pyger
 
 Pyger is a lightweight Python version of Liger for calculating allowed dwell times given spacecraft thermal constraints.
 
-* Uses a Monte-Carlo approach to sample a realistic ensemble of perigee-exit starting temperatures.
+* Uses a Monte-Carlo approach to sample a realistic ensemble of simulation starting temperatures.
 * Generates both typically achievable (50%) and best-case (90%) dwell times.
 * Includes PSMC, DPA, Minus-YZ, Fuel Tank, and PLINE models.
 * Constraints implemented as Python classes derived from a base ConstraintModel class.
@@ -63,13 +63,11 @@ does this in the following fashion:
 * Starting condition is a vector of temperatures (e.g. TEPHIN, TCYLAFT6, ...) or accumulated warm time
 * Need an ensemble of starting conditions based on realistic observing profiles leading up to start of simulation
 * Use a random sampling of actual profiles from the last year to generate propagated conditions:
-   * Choose actual observation dwells to set conditions just prior to simulation start 
-   (i.e. maneuvers are filtered out of initial sampling set)
-   * A default minimum dwell time of 1ksec is used to generate sampling set of final dwells for propagation
+   * Choose actual observation dwells to set conditions just prior to simulation start (maneuvers are filtered out of initial sampling set)
+   * A default minimum dwell time of 1ksec is used to generate sampling set of final dwells for propagation profiles
    * For each profile start propagation 3 days before simulation start time
    * Start with as-observed temperatures at the beginning of the 3 day profile
-   * Use thermal model to propagate temperatures during 3 day profile at simulation start 
-   date/time so simulation starts with representative conditions
+   * Use thermal model to propagate temperatures during 3 day profile at simulation start date/time so simulation starts with representative conditions
    * This works for any thermal model including PSMC with variable CCD-count dependence
 
 Actually generating the simulation inputs file is done with the command ``pyger
