@@ -24,6 +24,7 @@ class sim_inputs(object):
         :param stop: Stop date for time period used to find simulation dwells
         :param sim_file: Filename to save simulation profiles (pickle file)
         :param n_days: Number of days of dwell history to save for propagation
+        :param min_dwell_sec: Minimum number of seconds to use as a propagation ending dwell (default = 1000)
 
         Generates a dictionary, "sim_inputs" of simulation profiles for each model in the following
         form:
@@ -121,7 +122,7 @@ class sim_inputs(object):
 
         '''
 
-        logger.info('  Finding suitable simulation dwells between: \n' +
+        logger.info('  Finding suitable propagation ending dwells between: \n' +
                     '    Start:{0}\n'.format(self.start.date) +
                     '    Stop:{0}'.format(self.stop.date))
 
@@ -132,7 +133,7 @@ class sim_inputs(object):
         sim_stop_times = states[sim_ind]['tstop']
         sim_start_times = sim_stop_times - 86400 * self.n_days
 
-        logger.info('  Found {0} suitable dwells at least {1} seconds long.'
+        logger.info('  Found {0} suitable propagation ending dwells at least {1} seconds long.'
                     .format(len(sim_stop_times), int(self.min_dwell_sec)))
 
         return (sim_start_times, sim_stop_times)
