@@ -6,7 +6,7 @@ from .pyger import (calc_constraints, plot_dwells1, __version__, CtoF,
                     ConstraintMinusYZ,
                     ConstraintDPA, ConstraintTank)
 
-from .make_sim_inputs import sim_inputs
+from .make_sim_inputs import make_sim_inputs
 
 
 def get_options(args=None):
@@ -30,7 +30,10 @@ def get_options(args=None):
     parser_make.add_argument("--min-dwell-sec",
                              type=float,
                              help="Minimum number of seconds to use as a propagation ending dwell (default = 1000)")
-    parser_make.set_defaults(func=sim_inputs.__init__)
+    parser_make.add_argument("--max-dwell-num",
+                             type=float,
+                             help="Maximum number of sample dwells to save (default = 300)")
+    parser_make.set_defaults(func=make_sim_inputs)
 
     # create the parser for the "sim" command to run a constraint simulation
     parser_sim = subparsers.add_parser('sim', help='Simulate constraints')
@@ -98,8 +101,8 @@ def main(args=None):
             plot_dwells1(constraints['all'],
                          plot_title=plot_title,
                          plot_file=opt.plot_file)
-    elif opt.func == sim_inputs.__init__:
-        sim_inputs(**opt_args)
+    elif opt.func == make_sim_inputs:
+        make_sim_inputs(**opt_args)
 
 if __name__ == '__main__':
     main()
