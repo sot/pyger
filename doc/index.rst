@@ -85,6 +85,7 @@ make``.  First look at the available options::
     --n-days N_DAYS      Number of days to propagate prior to perigee exit
                          (default = 3)
     --min-dwell-sec      Minimum number of seconds to use as a propagation ending dwell (default = 1000)
+    --max-dwell-num      Maximum number of sample dwells to save (default = 300)
 
 Now run it, which takes about two minutes using the recommended default settings::
 
@@ -92,7 +93,8 @@ Now run it, which takes about two minutes using the recommended default settings
   Finding suitable propagation ending dwells between: 
     Start:2012:135:01:31:45.209
     Stop:2013:134:01:31:44.208
-  Found 1645 suitable propagation ending dwells at least 1000 seconds long.
+  Limiting number of sample dwells to 300
+  Found 300 suitable propagation ending dwells at least 1000 seconds long.
   Assembling simulation propagation data for model: pline
     Fetching state values: pitch
     Fetching telemetry for: aosares1
@@ -156,15 +158,15 @@ The constraint simulation and plot generation is done with ``pyger sim``.  First
 Then run it, which takes several minutes for the default settings::
 
   % pyger sim
-  MINUS_YZ: calculating start temps for 1645 dwells
+  MINUS_YZ: calculating start temps for 300 dwells
   MINUS_YZ: simulating 500 dwells
-  PSMC: calculating start temps for 1645 dwells
+  PSMC: calculating start temps for 300 dwells
   PSMC: simulating 500 dwells
-  PLINE: calculating warm time for 1645 dwells
+  PLINE: calculating warm time for 300 dwells
   PLINE: simulating 500 dwells
-  DPA: calculating start temps for 1645 dwells
+  DPA: calculating start temps for 300 dwells
   DPA: simulating 500 dwells
-  TANK: calculating start temps for 1645 dwells
+  TANK: calculating start temps for 300 dwells
   TANK: simulating 500 dwells
   Writing constraint plot file constraints.png
 
