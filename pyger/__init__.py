@@ -27,6 +27,12 @@ def get_options(args=None):
     parser_make.add_argument("--n-days",
                              type=float,
                              help="Number of days to propagate prior to perigee exit (default = 3)")
+    parser_make.add_argument("--min-dwell-sec",
+                             type=float,
+                             help="Minimum number of seconds to use as a propagation ending dwell (default = 1000)")
+    parser_make.add_argument("--max-dwell-num",
+                             type=float,
+                             help="Maximum number of sample dwells to save (default = 300)")
     parser_make.set_defaults(func=make_sim_inputs)
 
     # create the parser for the "sim" command to run a constraint simulation

@@ -9,7 +9,7 @@ Pyger
 
 Pyger is a lightweight Python version of Liger for calculating allowed dwell times given spacecraft thermal constraints.
 
-* Uses a Monte-Carlo approach to sample a realistic ensemble of perigee-exit starting temperatures.
+* Uses a Monte-Carlo approach to sample a realistic ensemble of simulation starting temperatures.
 * Generates both typically achievable (50%) and best-case (90%) dwell times.
 * Includes PSMC, DPA, Minus-YZ, Fuel Tank, and PLINE models.
 * Constraints implemented as Python classes derived from a base ConstraintModel class.
@@ -56,16 +56,18 @@ Make simulation inputs
 ------------------------
 
 In order to generate realistic set of dwell times `pyger` requires a realistic
-set of perigee-exit starting conditions that are appropriate to the time of the
-simulation.  Since there is no longer a single "best-case" starting temperature
-as there was for a 1-DOF TEPHIN model, `pyger` does this in the following fashion:
+set of starting conditions that are appropriate to the time of the simulation.  Since there is no 
+longer a single "best-case" starting temperature as there was for a 1-DOF TEPHIN model, `pyger` 
+does this in the following fashion:
 
 * Starting condition is a vector of temperatures (e.g. TEPHIN, TCYLAFT6, ...) or accumulated warm time
-* Need an ensemble of starting conditions based on realistic observing profiles leading up to perigee exit
-* Use actual profiles (about 120) from the last year:
-   * For each profile start 3 days before perigee exit
-   * Start with as-observed temperatures
-   * Use thermal model at simulation time (future) to propagate all temps forward to perigee exit
+* Need an ensemble of starting conditions based on realistic observing profiles leading up to start of simulation
+* Use a random sampling of actual profiles from the last year to generate propagated conditions:
+   * Choose actual observation dwells to set conditions just prior to simulation start (maneuvers are filtered out of initial sampling set)
+   * A default minimum dwell time of 1ksec is used to generate sampling set of final dwells for propagation profiles
+   * For each profile start propagation 3 days before simulation start time
+   * Start with as-observed temperatures at the beginning of the 3 day profile
+   * Use thermal model to propagate temperatures during 3 day profile at simulation start date/time so simulation starts with representative conditions
    * This works for any thermal model including PSMC with variable CCD-count dependence
 
 Actually generating the simulation inputs file is done with the command ``pyger
@@ -82,32 +84,37 @@ make``.  First look at the available options::
     --stop STOP          Sim input stop time (default = Now - 10 days)
     --n-days N_DAYS      Number of days to propagate prior to perigee exit
                          (default = 3)
+    --min-dwell-sec      Minimum number of seconds to use as a propagation ending dwell (default = 1000)
+    --max-dwell-num      Maximum number of sample dwells to save (default = 300)
 
-Now run it, which takes about a minute using the recommended default settings::
+Now run it, which takes about two minutes using the recommended default settings::
 
   % pyger make
-  Creating pyger simulation inputs covering 2012:130 to 2013:119
-  Reading Obsids...
-  Assembling inputs for pline
-    Fetching aosares1 telemetry
-  Assembling inputs for tank
-    Fetching pftank2t telemetry
-  Assembling inputs for minus_yz
-    Fetching pmtank3t telemetry
-    Fetching tmzp_my telemetry
-    Fetching tephin telemetry
-    Fetching tcylaft6 telemetry
-  Assembling inputs for psmc
-    Fetching 1pdeaat telemetry
-  Assembling inputs for dpa
-    Fetching 1dpamzt telemetry
-  Assembling inputs for minus_z
-    Fetching tcylaft6 telemetry
-    Fetching tcylfmzm telemetry
-    Fetching tephin telemetry
-    Fetching tfssbkt1 telemetry
-    Fetching tmzp_my telemetry
+  Finding suitable propagation ending dwells between: 
+    Start:2012:135:01:31:45.209
+    Stop:2013:134:01:31:44.208
+  Limiting number of sample dwells to 300
+  Found 300 suitable propagation ending dwells at least 1000 seconds long.
+  Assembling simulation propagation data for model: pline
+    Fetching state values: pitch
+    Fetching telemetry for: aosares1
+  Assembling simulation propagation data for model: tank
+    Fetching state values: pitch
+    Fetching telemetry for: pftank2t
+  Assembling simulation propagation data for model: minus_yz
+    Fetching state values: pitch
+    Fetching telemetry for: pmtank3t, tmzp_my, tephin, tcylaft6
+  Assembling simulation propagation data for model: psmc
+    Fetching state values: pitch, ccd_count, fep_count, clocking, vid_board, simpos
+    Fetching telemetry for: 1pdeaat
+  Assembling simulation propagation data for model: dpa
+    Fetching state values: pitch, ccd_count, fep_count, clocking, vid_board, simpos
+    Fetching telemetry for: 1dpamzt
+  Assembling simulation propagation data for model: minus_z
+    Fetching state values: pitch
+    Fetching telemetry for: tcylaft6, tcylfmzm, tephin, tfssbkt1, tmzp_my
   Writing simulation inputs to sim_inputs.pkl
+
 
 Note that the ``--start`` and ``--stop`` parameters can be specified in any valid  `DateTime format`_.
 
@@ -148,18 +155,18 @@ The constraint simulation and plot generation is done with ``pyger sim``.  First
     --plot-title PLOT_TITLE
                           Title on output plot
 
-Then run it, which takes about 25 seconds for the default settings::
+Then run it, which takes several minutes for the default settings::
 
   % pyger sim
-  MINUS_YZ: calculating start temps for 117 dwells
+  MINUS_YZ: calculating start temps for 300 dwells
   MINUS_YZ: simulating 500 dwells
-  PSMC: calculating start temps for 117 dwells
+  PSMC: calculating start temps for 300 dwells
   PSMC: simulating 500 dwells
-  PLINE: calculating warm time for 117 dwells
+  PLINE: calculating warm time for 300 dwells
   PLINE: simulating 500 dwells
-  DPA: calculating start temps for 117 dwells
+  DPA: calculating start temps for 300 dwells
   DPA: simulating 500 dwells
-  TANK: calculating start temps for 117 dwells
+  TANK: calculating start temps for 300 dwells
   TANK: simulating 500 dwells
   Writing constraint plot file constraints.png
 
