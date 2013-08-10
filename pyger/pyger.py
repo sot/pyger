@@ -124,6 +124,7 @@ class ConstraintPline(ConstraintModel):
             sim_input['dwell1_T0s'] = [warm_dwell, warm_pitch_max]
 
 
+
 class ConstraintMinusZ(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
         model_spec = os.path.join(pkg_dir, 'minusz_spec.json')
@@ -131,35 +132,21 @@ class ConstraintMinusZ(ConstraintModel):
         ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False):
-        model = xija.ThermalModel('minus_z', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
 
+    def get_init_comps(self, T0s, states):
+        # Initialize all 
+        
         state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['pitch'].set_data(states['pitch'], state_times)
-        model.comp['eclipse'].set_data(False)
-        model.comp['tcylaft6'].set_data(T0s[0])
-        model.comp['tcylfmzm'].set_data(T0s[1])
-        model.comp['tephin'].set_data(T0s[2])
-        model.comp['tfssbkt1'].set_data(T0s[3])
-        model.comp['tmzp_my'].set_data(T0s[4])
+        init_comps = {'pitch':(states['pitch'], state_times),
+                      'eclipse':False,
+                      'tcylaft6':T0s[0],
+                      'tcylfmzm':T0s[1],
+                      'tephin':T0s[2],
+                      'tfssbkt1':T0s[3],
+                      'tmzp_my':T0s[4]}
 
-        model.make()
-        model.calc()
+        return init_comps
 
-        T_tcylaft6 = Ska.Numpy.interpolate(model.comp['tcylaft6'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-        T_tcylfmzm = Ska.Numpy.interpolate(model.comp['tcylfmzm'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-        T_tephin = Ska.Numpy.interpolate(model.comp['tephin'].mvals,
-                                         xin=model.times, xout=times, sorted=True)
-        T_tfssbkt1 = Ska.Numpy.interpolate(model.comp['tfssbkt1'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-        T_tmzp_my = Ska.Numpy.interpolate(model.comp['tmzp_my'].mvals,
-                                          xin=model.times, xout=times, sorted=True)
-
-        return np.vstack([T_tcylaft6, T_tcylfmzm, T_tephin, T_tfssbkt1, T_tmzp_my])
 
     def get_states1(self, start, stop, pitch1):
         states = [(start.secs, stop.secs, pitch1)]
@@ -174,34 +161,20 @@ class ConstraintMinusYZ(ConstraintModel):
         ConstraintModel.__init__(self, 'minus_yz', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False):
-        model = xija.ThermalModel('minus_yz', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
+    def get_init_comps(self, T0s, states):
 
         state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['pitch'].set_data(states['pitch'], state_times)
-        model.comp['eclipse'].set_data(False)
-        model.comp['pmtank3t'].set_data(T0s[0])
-        model.comp['tmzp_my'].set_data(T0s[1])
-        model.comp['tephin'].set_data(T0s[2])
-        model.comp['tcylaft6'].set_data(T0s[3])
-        model.comp['pseudo_0'].set_data(T0s[3] - 4)
-        model.comp['pseudo_1'].set_data(T0s[0])
+        init_comps = {'pitch':(states['pitch'], state_times),
+                      'eclipse':False,
+                      'pmtank3t':T0s[0],
+                      'tmzp_my':T0s[1],
+                      'tephin':T0s[2],
+                      'tcylaft6':T0s[3],
+                      'pseudo_0':T0s[3] - 4.0,
+                      'pseudo_1':T0s[0]}
 
-        model.make()
-        model.calc()
+        return init_comps
 
-        T_pmtank3t = Ska.Numpy.interpolate(model.comp['pmtank3t'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-        T_tmzp_my = Ska.Numpy.interpolate(model.comp['tmzp_my'].mvals,
-                                          xin=model.times, xout=times, sorted=True)
-        T_tephin = Ska.Numpy.interpolate(model.comp['tephin'].mvals,
-                                         xin=model.times, xout=times, sorted=True)
-        T_tcylaft6 = Ska.Numpy.interpolate(model.comp['tcylaft6'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-
-        return np.vstack([T_pmtank3t, T_tmzp_my, T_tephin, T_tcylaft6])
 
     def get_states1(self, start, stop, pitch1):
         states = [(start.secs, stop.secs, pitch1)]
@@ -217,30 +190,32 @@ class ConstraintDPA(ConstraintModel):
         ConstraintModel.__init__(self, 'dpa', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False, cache=True):
-        model = xija.ThermalModel('dpa', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
+
+    def get_init_comps(self, T0s, states):
 
         state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['sim_z'].set_data(states['simpos'], state_times)
-        model.comp['eclipse'].set_data(False)
-        model.comp['1dpamzt'].set_data(T0s[0])
-        model.comp['dpa_power'].set_data(0.0)
+        init_comps = {'sim_z':(states['simpos'], state_times),
+                      'eclipse':False,
+                      '1dpamzt':T0s[0],
+                      'dpa_power':0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
-            model.comp[name].set_data(states[name], state_times)
+            init_comps[name] = (states[name], state_times)
 
-        model.make()
-        model.calc()
-        T_dpa = Ska.Numpy.interpolate(model.comp['1dpamzt'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+        return init_comps
 
-        return np.vstack([T_dpa])
 
-    def get_states1(self, start, stop, pitch1):
-        states = [(start.secs, stop.secs, self.n_ccd, self.n_ccd, 1, 1,
-                   pitch1, 75000)]
+    def get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1, 
+                    clocking=1, simpos=75000):
+
+        if ccd_count == None:
+            ccd_count = self.n_ccd
+        
+        if fep_count == None:
+            fep_count = ccd_count
+
+        states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
+                   pitch1, simpos)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
                  'clocking', 'pitch', 'simpos')
         return np.rec.fromrecords(states, names=names)
@@ -253,26 +228,21 @@ class ConstraintTank(ConstraintModel):
         ConstraintModel.__init__(self, 'tank', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False):
-        model = xija.ThermalModel('tank', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
 
-        state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['pitch'].set_data(states['pitch'], state_times)
-        model.comp['eclipse'].set_data(False)
+    def get_init_comps(self, T0s, states):
+
         # Empirical formula from settling values for pf0tank2t and pftank2t.
         # The two values converge at 22 C (pitch > 140), while at pitch = 120
         # pftank2t = 39 and pf0tank2t = 36.
-        model.comp['pf0tank2t'].set_data(22 + 14. / 17. * (T0s[0] - 22.0))
-        model.comp['pftank2t'].set_data(T0s[0])
 
-        model.make()
-        model.calc()
-        T_tank = Ska.Numpy.interpolate(model.comp['pftank2t'].mvals,
-                                       xin=model.times, xout=times, sorted=True)
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch':(states['pitch'], state_times),
+                      'eclipse':False,
+                      'pf0tank2t':22 + 14. / 17. * (T0s[0] - 22.0),
+                      'pftank2t':T0s[0]}
 
-        return np.vstack([T_tank])
+        return init_comps
+
 
     def get_states1(self, start, stop, pitch1):
         states = [(start.secs, stop.secs, pitch1)]
@@ -288,33 +258,38 @@ class ConstraintPSMC(ConstraintModel):
         ConstraintModel.__init__(self, 'psmc', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False, cache=True):
-        model = xija.ThermalModel('psmc', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
+
+    def get_init_comps(self, T0s, states):
+
+        # pin1at ~ 1pdeaat - 10.5 C
 
         state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['sim_z'].set_data(states['simpos'], state_times)
-        model.comp['pin1at'].set_data(T0s[0] - 10.5)  # pin1at ~ 1pdeaat - 10.5 C
-        model.comp['1pdeaat'].set_data(T0s[0])
-        model.comp['dpa_power'].set_data(0)
+        init_comps = {'sim_z':(states['simpos'], state_times),
+                       'pin1at':T0s[0] - 10.5,
+                       '1pdeaat':T0s[0],
+                       'dpa_power':0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
-            model.comp[name].set_data(states[name], state_times)
+            init_comps[name] = (states[name], state_times)
 
-        model.make()
-        model.calc()
-        T_psmc = Ska.Numpy.interpolate(model.comp['1pdeaat'].mvals,
-                                       xin=model.times, xout=times, sorted=True)
+        return init_comps
 
-        return np.vstack([T_psmc])
 
-    def get_states1(self, start, stop, pitch1):
-        states = [(start.secs, stop.secs, self.n_ccd, self.n_ccd, 1, 1,
-                   pitch1, 75000)]
+    def get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1, 
+                    clocking=1, simpos=75000):
+
+        if ccd_count == None:
+            ccd_count = self.n_ccd
+        
+        if fep_count == None:
+            fep_count = ccd_count
+
+        states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
+                   pitch1, simpos)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
                  'clocking', 'pitch', 'simpos')
         return np.rec.fromrecords(states, names=names)
+
 
 
 def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):

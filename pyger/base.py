@@ -32,6 +32,64 @@ class ConstraintModel(object):
         except AttributeError:
             return None
 
+
+    def set_init_comps(self, init_comps, model):
+        """ Set initial values based on states defined in specialized model classes
+
+        :param init_comps: dict of node names and initial values
+        :param model: xija.model instance
+
+        This function is called by calc_model()
+
+        """  
+
+        for key, val in init_comps.items():
+            if key in self.state_cols or key == 'sim_z':
+                model.comp[key].set_data(val[0], val[1])
+            else:
+                model.comp[key].set_data(val)
+
+
+    def get_model_temps(self, model, times):
+        """ Retrieve calculated temperatures after xija model run
+
+        :param model: xija.model instance after calculating temperatures
+        :param times: list or array of times in seconds onto which model temperatures are 
+                      interpolated
+        :returns: list of temperatures, corresponding to each msid (by order), interpolated to the
+                  "times" list/array passed to this function
+        """ 
+
+        Ts = []
+        for msid in self.msids:
+            Ts.append(Ska.Numpy.interpolate(model.comp[msid].mvals, xin=model.times, xout=times,
+                                            sorted=True))
+        return Ts
+
+
+    def calc_model(self, states, times, T0s):
+        """ Model calculation routine
+
+        :param states: recarray of initial states
+        :param times: list or array of times in seconds to which temperatures will be interpolated
+        :param T0s: list of initial temperatures, in order of msid as defined in self.msids
+
+        :returns: list of predicted temperatures for each msid, in order of msid as defined in 
+                  self.msids
+        """
+
+        model = xija.ThermalModel(self.name, start=states['tstart'][0],
+                                  stop=states['tstop'][-1],
+                                  model_spec=self.model_spec)
+
+        init_comps = self.get_init_comps(T0s, states)
+        self.set_init_comps(init_comps, model)
+        model.make()
+        model.calc()
+
+        return np.vstack(self.get_model_temps(model, times))
+
+
     def calc_dwell1_T0s(self, start):
         """Calculate the starting temperature vectors for the ensemble of pitch
         profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
@@ -52,7 +110,7 @@ class ConstraintModel(object):
 
             times = np.array([sim_input['tstop'] + time_adj - 1])
             T0s = np.array([sim_input['T0s'][x] for x in self.msids])
-            Ts = self.calc_model(np_states, times, T0s, state_only=True)
+            Ts = self.calc_model(np_states, times, T0s)
 
             sim_input['dwell1_T0s'] = Ts[:, -1]
 
