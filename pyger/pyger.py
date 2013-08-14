@@ -86,7 +86,7 @@ class ConstraintPline(ConstraintModel):
             dwells1.append((dwell_dur, pitch1, constraint_name, [warm_dwell, warm_pitch_max]))
 
         self.dwells1 = np.rec.fromrecords(dwells1,
-                                          dtype=[('dur', np.float64),
+                                          dtype=[('duration', np.float64),
                                                  ('pitch', np.float64),
                                                  ('constraint_name', '|S10'),
                                                  ('T1', np.float64, (2,))
@@ -124,7 +124,6 @@ class ConstraintPline(ConstraintModel):
             sim_input['dwell1_T0s'] = [warm_dwell, warm_pitch_max]
 
 
-
 class ConstraintMinusZ(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
         model_spec = os.path.join(pkg_dir, 'minusz_spec.json')
@@ -132,23 +131,21 @@ class ConstraintMinusZ(ConstraintModel):
         ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits,
                                  max_dwell_ksec)
 
+    def _get_init_comps(self, T0s, states):
+        # Initialize all
 
-    def get_init_comps(self, T0s, states):
-        # Initialize all 
-        
         state_times = np.array([states['tstart'], states['tstop']])
-        init_comps = {'pitch':(states['pitch'], state_times),
-                      'eclipse':False,
-                      'tcylaft6':T0s[0],
-                      'tcylfmzm':T0s[1],
-                      'tephin':T0s[2],
-                      'tfssbkt1':T0s[3],
-                      'tmzp_my':T0s[4]}
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'tcylaft6': T0s[0],
+                      'tcylfmzm': T0s[1],
+                      'tephin': T0s[2],
+                      'tfssbkt1': T0s[3],
+                      'tmzp_my': T0s[4]}
 
         return init_comps
 
-
-    def get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
@@ -161,22 +158,21 @@ class ConstraintMinusYZ(ConstraintModel):
         ConstraintModel.__init__(self, 'minus_yz', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def get_init_comps(self, T0s, states):
+    def _get_init_comps(self, T0s, states):
 
         state_times = np.array([states['tstart'], states['tstop']])
-        init_comps = {'pitch':(states['pitch'], state_times),
-                      'eclipse':False,
-                      'pmtank3t':T0s[0],
-                      'tmzp_my':T0s[1],
-                      'tephin':T0s[2],
-                      'tcylaft6':T0s[3],
-                      'pseudo_0':T0s[3] - 4.0,
-                      'pseudo_1':T0s[0]}
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'pmtank3t': T0s[0],
+                      'tmzp_my': T0s[1],
+                      'tephin': T0s[2],
+                      'tcylaft6': T0s[3],
+                      'pseudo_0': T0s[3] - 4.0,
+                      'pseudo_1': T0s[0]}
 
         return init_comps
 
-
-    def get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
@@ -190,28 +186,26 @@ class ConstraintDPA(ConstraintModel):
         ConstraintModel.__init__(self, 'dpa', sim_inputs, limits,
                                  max_dwell_ksec)
 
-
-    def get_init_comps(self, T0s, states):
+    def _get_init_comps(self, T0s, states):
 
         state_times = np.array([states['tstart'], states['tstop']])
-        init_comps = {'sim_z':(states['simpos'], state_times),
-                      'eclipse':False,
-                      '1dpamzt':T0s[0],
-                      'dpa_power':0.0}
+        init_comps = {'sim_z': (states['simpos'], state_times),
+                      'eclipse': False,
+                      '1dpamzt': T0s[0],
+                      'dpa_power': 0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
 
         return init_comps
 
+    def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
+                     clocking=1, simpos=75000):
 
-    def get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1, 
-                    clocking=1, simpos=75000):
-
-        if ccd_count == None:
+        if ccd_count is None:
             ccd_count = self.n_ccd
-        
-        if fep_count == None:
+
+        if fep_count is None:
             fep_count = ccd_count
 
         states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
@@ -228,23 +222,21 @@ class ConstraintTank(ConstraintModel):
         ConstraintModel.__init__(self, 'tank', sim_inputs, limits,
                                  max_dwell_ksec)
 
-
-    def get_init_comps(self, T0s, states):
+    def _get_init_comps(self, T0s, states):
 
         # Empirical formula from settling values for pf0tank2t and pftank2t.
         # The two values converge at 22 C (pitch > 140), while at pitch = 120
         # pftank2t = 39 and pf0tank2t = 36.
 
         state_times = np.array([states['tstart'], states['tstop']])
-        init_comps = {'pitch':(states['pitch'], state_times),
-                      'eclipse':False,
-                      'pf0tank2t':22 + 14. / 17. * (T0s[0] - 22.0),
-                      'pftank2t':T0s[0]}
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'pf0tank2t': 22 + 14. / 17. * (T0s[0] - 22.0),
+                      'pftank2t': T0s[0]}
 
         return init_comps
 
-
-    def get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
@@ -258,30 +250,28 @@ class ConstraintPSMC(ConstraintModel):
         ConstraintModel.__init__(self, 'psmc', sim_inputs, limits,
                                  max_dwell_ksec)
 
-
-    def get_init_comps(self, T0s, states):
+    def _get_init_comps(self, T0s, states):
 
         # pin1at ~ 1pdeaat - 10.5 C
 
         state_times = np.array([states['tstart'], states['tstop']])
-        init_comps = {'sim_z':(states['simpos'], state_times),
-                       'pin1at':T0s[0] - 10.5,
-                       '1pdeaat':T0s[0],
-                       'dpa_power':0.0}
+        init_comps = {'sim_z': (states['simpos'], state_times),
+                      'pin1at': T0s[0] - 10.5,
+                      '1pdeaat': T0s[0],
+                      'dpa_power': 0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
 
         return init_comps
 
+    def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
+                     clocking=1, simpos=75000):
 
-    def get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1, 
-                    clocking=1, simpos=75000):
-
-        if ccd_count == None:
+        if ccd_count is None:
             ccd_count = self.n_ccd
-        
-        if fep_count == None:
+
+        if fep_count is None:
             fep_count = ccd_count
 
         states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
@@ -289,7 +279,6 @@ class ConstraintPSMC(ConstraintModel):
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
                  'clocking', 'pitch', 'simpos')
         return np.rec.fromrecords(states, names=names)
-
 
 
 def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
@@ -316,7 +305,7 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y')
     for name, color in zip(names, colors):
         ok = dwells1['constraint_name'] == name
-        plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color,
+        plt.plot(dwells1['pitch'][ok], dwells1['duration'][ok] / 1000., '.' + color,
                  markersize=3, label=name, mec=color)
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur90'] / 1000., '-m')
@@ -337,13 +326,14 @@ def merge_dwells1(constraints):
     constraints.
 
     :param constraints: list of ModelConstraint objects
-    :returns: NumPy recarray of dwells with pitch, dur, constraint_name columns
+    :returns: NumPy recarray of dwells with pitch, duration, constraint_name columns
     """
     dwells1 = []
     for i in range(constraints[0].n_sim):
-        constraint = min(constraints, key=lambda x: x.dwells1['dur'][i])
-        dwells1.append(tuple(constraint.dwells1[x][i] for x in ('pitch', 'dur', 'constraint_name')))
-    dwells1 = np.rec.fromrecords(dwells1, names=('pitch', 'dur', 'constraint_name'))
+        constraint = min(constraints, key=lambda x: x.dwells1['duration'][i])
+        dwells1.append(tuple(constraint.dwells1[x][
+                       i] for x in ('pitch', 'duration', 'constraint_name')))
+    dwells1 = np.rec.fromrecords(dwells1, names=('pitch', 'duration', 'constraint_name'))
     return dwells1
 
 
@@ -353,9 +343,9 @@ def calc_constraints(start='2013:001',
                      max_tephin=147.0,
                      max_tcylaft6=102.0,
                      max_1pdeaat=52.5,
-                     max_1dpamzt=32.5,
+                     max_1dpamzt=31.5,
                      max_pftank2t=93.0,
-                     n_ccd=5,
+                     n_ccd=6,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
@@ -381,7 +371,7 @@ def calc_constraints(start='2013:001',
     :param min_pitch: minimum pitch in simulations (default=45)
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
-    :param constraint_models: constraint models (default=('minus_yz', 'psmc', 'pline', 'dpa', 'tank'))
+    :param constraint_models: constraint models, default=('minus_yz', 'psmc', 'pline', 'dpa', 'tank')
 
     :returns: dict of computed constraint model objects
     """
