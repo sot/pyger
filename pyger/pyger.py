@@ -432,3 +432,83 @@ def calc_constraints(start='2013:001',
     constraints['all'].start = start
 
     return constraints
+
+
+
+
+def calc_constraints2(constraints,
+                      start='2013:001',
+                      n_ccd=None,
+                      max_dwell_ksec=400.,
+                      pitch_num=50,
+                      pitch_range=None,
+                      hot_dwell_temp_ratio=0.9,
+                      T_cool_ratio=0.9,
+                      constraint_models=('minus_yz', 'psmc', 'dpa', 'tank'),
+                      msids=('tephin', 'tcylaft6', '1pdeaat', '1dpamzt', 'pftank2t')
+                      ):
+    """
+    Calculate allowed dwell times coming out of perigee given a set of
+    constraint models.
+
+    :param start: date at which to perform the constraint simulations
+    :param n_ccd: number of ACIS CCDs being used
+    :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
+    :param pitch_num: Number of cool pitch values to simulate for each hot dwell
+    :param pitch_range: Two element list or tuple defining target cooling pitch range. This
+                        allows one to override the default cool pitch values.
+    :param hot_dwell_temp_ratio: Time ratio during hot dwell for which to extract cooldown
+                                 dwell starting conditions. This allows one to initiate a
+                                 cooldown simulation at any point during a hot dwell, not
+                                 just when the hot dwell reaches a thermal limit.
+    :param T_cool_ratio: Temperature ratio with respect to the temperature increase during
+                         each hot dwell, used to calculate the point at which a simulated
+                         cooldown dwell has "cooled". Ultimately, the reported cooling time is
+                         the time it takes for the MSID to reach the "cooled" temperature,
+                         starting at the given hot conditions. A ratio of 0.9 means the MSID
+                         has to have cooled back down 90% to the original hot dwell starting
+                         temperature.
+    :param constraint_models: constraint models, default=('minus_yz', 'psmc', 'dpa', 'tank')
+
+    :returns: dict of computed constraint model objects
+    """
+
+
+    start = DateTime(start)
+    stop = DateTime(start.secs + max_dwell_ksec * 1000)
+    norm_profile = np.linspace(0, 1, 100)**10
+    times = start.secs + norm_profile * (stop.secs - start.secs)
+
+
+    constraints_list = [constraints[x] for x in constraint_models]
+    cooldown = {}
+    for constraint in constraints_list:
+        for msid in msids:
+            if msid in constraint.msids:
+
+                if n_ccd is None:
+                    n_ccd = constraint.n_ccd
+
+                cooldown[msid] = constraint.calc_dwells2(msid,
+                                                         start,
+                                                         stop,
+                                                         times,
+                                                         pitch_num=pitch_num, 
+                                                         pitch_range=pitch_range,
+                                                         hot_dwell_temp_ratio=hot_dwell_temp_ratio, 
+                                                         T_cool_ratio=T_cool_ratio,
+                                                         ccd_count=n_ccd)
+                #constraint.calc_dwell1_stats(pitch_bins)
+
+    # dwells1 = merge_dwells1(constraints_list)
+    # constraints['all'] = ConstraintModel('all', sim_inputs, limits=None,
+    #                                      max_dwell_ksec=max_dwell_ksec)
+    # constraints['all'].dwells1 = dwells1
+    # constraints['all'].calc_dwell1_stats(pitch_bins)
+    # constraints['all'].start = start
+
+    return cooldown
+
+
+
+

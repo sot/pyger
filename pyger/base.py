@@ -158,6 +158,7 @@ class ConstraintModel(object):
 
         self.find_limit_crossings()
 
+
     def find_limit_crossings(self, limits=None):
         """ Determine which dwells reach specified MSID limits.
 
@@ -212,6 +213,7 @@ class ConstraintModel(object):
             self.dwells1[dwell1_num]['constraint_name'] = constraint_name
             self.dwells1[dwell1_num]['duration'] = duration
 
+
     def calc_dwell1_stats(self, pitch_bins):
         dwells1 = self.dwells1
         dwell1_stats = []
@@ -232,3 +234,251 @@ class ConstraintModel(object):
                                                       ('dur50', np.float64),
                                                       ('dur90', np.float64),
                                                       ])
+
+
+    def find_long_hot_pitch_dwells(self, perc=0.2):
+        """ Select the initial hot pitch sims that start with a low temperature (bottom 20%) 
+
+        :param perc: fraction of starting temperatures (0.2 = 20% lowest temperatures)
+
+        :returns: index into self.dwells1 datastructure
+        
+        This returns the index into the self.dwells1 datastructure, indicating which of those sims
+        that reached a limit, started at the specified percentile/fraction of coldest starting
+        temperatures. Invariably, most of these will sims will have started within a narrow pitch
+        range before "maneuvering" to the simulated "hot" pitch. This is important to keep in mind
+        since these lowest temperatures will often not be able to be reached during the second dwell
+        set of simulations (think of these as the "cooldown" simulations).
+ 
+        """
+
+        # Eliminate sims that have zero duration 
+        good_sim = self.dwells1['duration'] > 0
+
+        # Generate a list of hot pitch values from which to choose the best dwells 
+        hot_pitch_ind_all = np.flatnonzero((self.dwells1['constraint_name'] != 'none') & good_sim)
+
+        # You want to look at the starting temperatures by msid, not by dwell 
+        start_temps = self.dwells1['T0s'][hot_pitch_ind_all]
+        start_temps_transpose = start_temps.transpose()
+
+        # Assemble a list of indices for the sorted array for each msid 
+        sort_ind = [msid_temps.argsort() for msid_temps in start_temps_transpose]
+
+        # Build a list of indices from 0 to the index representing "perc" of the total 
+        # length of the array, i.e. 0..19 for an array 100 elements long 
+        ind = range(int(len(start_temps_transpose[0]) * perc))
+
+        # Get the first N indices in the sorted arrays of each msid. This represents the
+        # lowest N starting values for each msid. N is the length of 'ind' 
+        lowest_temps_ind = np.array([sorted_msid_ind[ind] for sorted_msid_ind in sort_ind])
+
+        # Check to see if enough hot pitch values were found. If too few are found then 
+        # either this constraint is not limited in this configuration, or there is not enough
+        # data to work with. If enough hot pitch values were found, then return the simulations
+        # that started with the coldest temperatures.
+        hot_pitch_len = len(hot_pitch_ind_all)
+
+        if hot_pitch_len > 20:
+
+            # Return the union of each of these index arrays so the lowest N values for each
+            # msid are included, return the indices in the context of the original dwells 
+            # array
+            
+            hot_pitch_ind = hot_pitch_ind_all[np.array(list(set(lowest_temps_ind.flatten())))]
+
+        else:
+            sentence_fragment = ('hot pitch dwells were found to seed the cooldown ' +
+                                 'simulations. This constraint either is not sufficiently ' +
+                                 'limited in this configuration or there are too few ' +
+                                 'simulations to pick from. Try increasing the number of ' +
+                                 'simulations used (n-sim keyword for calc_constraints())')
+
+            logger.info('{0}: {1} {2}'.format(self.name.upper(), hot_pitch_len, 
+                                                   sentence_fragment))
+            hot_pitch_ind = []
+
+        return hot_pitch_ind
+
+
+    def calc_dwells2(self, msid, start, stop, times, pitch_num, hot_dwell_temp_ratio, 
+                     T_cool_ratio, pitch_range=None, **statekw):
+        """ Calculate model temperature at "non-hot" pitch ranges, starting at hot conditions
+
+        :param msid: MSID for which to calculate cooling times
+        :param start: Chandra.DateTime object for cooldown simulation start time
+        :param stop: Chandra.DateTime object for cooldown simulation stop time
+        :param times: Numpy array of times for which to calculate temperatures, not necessarily
+                      the same times as used in the initial dwell
+        :param pitch_num: Number of cool pitch values to simulate for each hot dwell
+        :param pitch_range: Two element list or tuple defining target cooling pitch range. This
+                            allows one to override the default cool pitch values.
+        :param hot_dwell_temp_ratio: Time ratio during hot dwell for which to extract cooldown
+                                     dwell starting conditions. This allows one to initiate a
+                                     cooldown simulation at any point during a hot dwell, not
+                                     just when the hot dwell reaches a thermal limit.
+        :param T_cool_ratio: Temperature ratio with respect to the temperature increase during
+                             each hot dwell, used to calculate the point at which a simulated
+                             cooldown dwell has "cooled". Ultimately, the reported cooling time is
+                             the time it takes for the MSID to reach the "cooled" temperature,
+                             starting at the given hot conditions. A ratio of 0.9 means the MSID
+                             has to have cooled back down 90% to the original hot dwell starting
+                             temperature.
+        :param **statekw: Model state information; allows one to specify different states for the
+                          cooldown dwell. For example one could simulate the initial dwell with 6
+                          ccds and simulate the cooldown dwell with 4 ccds.
+
+        :returns: Numpy recarray containing cooldown simulation information
+
+
+        Regarding pitch values used:
+        1) By default pitch values previously used are re-used as the sample set for the cooldown 
+           dwells. This makes dividing up the hot vs. cold pitch values much easier. Dividing up 
+           the pitch values between hot and cold pitch values reduces the number of model runs since
+           there is no need to run a "cooldown" dwell for at hot pitch value. If new pitch values
+           were used, the current constraint profile would have to be mapped in some fashion,
+           complicating the process of finding the required balance of hot and cold time. Also, it
+           doesn't make sense to run a cooldown dwell for an already cold dwell.
+
+        2) Since some constraints are strongly dependant on other factors besides pitch (e.g. dpa),
+           the ability to override the default behavior described above is built in. If this 
+           override is triggered, the "pitch_range" keyword should return a two element list or 
+           tuple including the minimum and maximum pitch to use for the cooldown simulations.
+           Pitch values are chosen from those used in the original simulations.
+
+        This second set of dwells is sometimes referred to "cooldown" dwells or sims since the 
+        original intent was to determine the time to cool from hot conditions.
+
+        Regarding time span of second set of dwells ("cooldown dwells"):
+        Cooldown dwells are run from "start" to "stop"; both are inputs to this function. The 
+        total cooling time (defined in start, stop, times) should be longer than the dwell time
+        used in the initial dwell to adequately map cooling times.
+
+        Regarding filtering:
+        Dwells that have zero duration (as specifed in the self.dwells1 datastructure) are 
+        filtered out. These will likely have final temperatures that are higher than the specified
+        limit.
+
+        Regarding output datastructure:
+        Data is returned in the form of a dictionary due to the complex format. Each starting
+        "hot" dwell is simulated as maneuvering to a range of "non heating" pitch values. Each
+        of these subsequent simulations returns modeled temperatures for each MSID in the model.
+        I ended up spending too much time puzzling out the record array datatype definition so I
+        used a dictionary for now. This is something I'd like to revisit when time permits.
+        
+        """
+
+
+        def find_dwell2_pitch_ind(pitch_range, pitch_num):
+            """ Select a specified number of cool pitch values randomly from the set of sims in 
+            self.dwells1
+
+            """
+
+            # Eliminate sims that have zero duration 
+            good_sim = self.dwells1['duration'] > 0
+
+            if not pitch_range:
+                # Find the indices to all sims that do not reach the limit for any msid, and which
+                # do not have a zero duration (may be redundant) 
+                dwell2_pitch_ind_all = np.flatnonzero((self.dwells1['constraint_name'] != 
+                                                      msid.lower()) & good_sim)
+
+            else:
+                # If a pitch range is specified, then select only pitch values within this range
+                ind1 = np.flatnonzero(self.dwells1['pitch'] >= pitch_range[0])
+                ind2 = np.flatnonzero(self.dwells1['pitch'] <= pitch_range[1])
+                dwell2_pitch_ind_all = ind1 & ind2 & good_sim
+
+            # Select N of these indices randomly, where N is specified by 'pitch_num' 
+            ind = np.random.randint(len(dwell2_pitch_ind_all), size=pitch_num)
+
+            return dwell2_pitch_ind_all[ind]
+
+
+        def calculate_init_data(self, msid_ind, i_hot, ratio):
+            """ Determine starting temperatures for the second dwell set
+
+            Starting temperatures are determined by using a ratio of delta temperature between
+            the hot dwell starting temperature and the hot dwell final temperature at or just
+            before reaching the limit for the constraining msid. The time at this interpolated
+            temperature is then used to interpolate the starting temperatures for the rest of the
+            nodes in the model.
+
+            """
+            dwells1 = self.dwells1
+            T = dwells1['Ts'][i_hot]
+            times = dwells1['times'][i_hot]
+
+            tlim = times[0] + dwells1['duration'][i_hot]
+            Tlim = np.interp(tlim, times, T[msid_ind]) # In case a custom limit was used
+
+            # Note that if the ratio is small enough, it is possible the resulting temp appears
+            # twice in the dwell since temperatures will dip sometimes before rising
+            T_ratio = T[msid_ind][0] + ratio * (Tlim - T[msid_ind][0])
+            t_ratio = np.interp(T_ratio, T[msid_ind], times)
+
+            T_dwell2_0 = np.array([np.interp(t_ratio, times, Ts_hot) for Ts_hot in T])
+            t_dwell2 = t_ratio - times[0]
+
+            return T_dwell2_0, t_dwell2
+
+
+        def calc_cooldown_times(self, i_hot, times, Ts, msid_ind, T_cool_ratio):
+            times = times - times[0]
+            Ts_dwell1 = self.dwells1['Ts'][i_hot][msid_ind]
+            Ts = Ts[msid_ind]
+            T_threshold = Ts_dwell1[0] + (1 - T_cool_ratio) * (Ts_dwell1[-1] - Ts_dwell1[0])
+            t_interp = np.interp(T_threshold, Ts[::-1], times[::-1], left=np.nan, right=np.nan)
+            
+            return t_interp, T_threshold
+
+
+        # Find the indices to the appropriate inital hot pitch values, and random cool pitch 
+        # values 
+        hot_pitch_ind = self.find_long_hot_pitch_dwells()
+        dwell2_pitch_ind = find_dwell2_pitch_ind(pitch_range, pitch_num=pitch_num)
+
+        msid_ind = self.msids.index(msid)
+
+        logger.info('{0}: simulating {2} cooldown dwells for each of the {1} hot dwells'\
+                     .format(self.name.upper(), len(hot_pitch_ind), len(dwell2_pitch_ind)))
+        logger.info(('Using a hot dwell temperature ratio of {0} to determine cooldown dwell' + 
+                       'starting conditions').format(hot_dwell_temp_ratio))
+
+        dwells2 = []
+        for j, i_hot in enumerate(hot_pitch_ind):
+            logger.info('{0}: simulating cooldown dwells for hot dwell {1} of {2}'\
+                        .format(self.name.upper(), j + 1, len(hot_pitch_ind)))
+
+            T_dwell2_0, duration = calculate_init_data(self, msid_ind, i_hot, hot_dwell_temp_ratio)
+
+            dwell2_pitch_set = self.dwells1['pitch'][dwell2_pitch_ind]
+
+            t_cool_set = []
+            for cool_pitch in dwell2_pitch_set:
+                states2 = self._get_states1(start, stop, cool_pitch, **statekw)
+                Ts = self._calc_model(states2, times, T_dwell2_0)
+                t_cool, T_cool = calc_cooldown_times(self, i_hot, times, Ts, msid_ind, T_cool_ratio)
+                t_cool_set.append(t_cool)
+
+            dwell2_case = (i_hot, self.dwells1['pitch'][i_hot], msid, duration, 
+                           self.dwells1['T0s'][i_hot], T_dwell2_0, dwell2_pitch_set, 
+                           np.array(t_cool_set), T_cool)
+
+            dwells2.append(dwell2_case)
+
+
+        dtype = np.dtype([('dwell1_ind', np.int32), 
+                          ('dwell1_pitch', np.float64),
+                          ('constraining_msid', '|S10'),
+                          ('dwell1_duration_delta', np.float64),
+                          ('T_dwell1_0', np.float64, len(self.msids) ),
+                          ('T_dwell2_0', np.float64, len(self.msids) ),
+                          ('dwell2_pitch_set', np.float64, len(dwell2_pitch_ind) ),
+                          ('dwell2_times', np.float64, len(dwell2_pitch_ind) ),
+                          ('dwell2_cool_temp', np.float64) 
+                          ])
+
+        return  np.rec.fromrecords(dwells2, dtype=dtype)
+
