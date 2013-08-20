@@ -45,6 +45,56 @@ def hour_min_to_sec(hm):
     return 3600 * (int(h) + float(m) / 60.)
 
 
+def save_pyger_pickle(constraints, filename):
+    """ Save pyger data to pickle file
+
+    :param constraints: This can be either the output from calc_constraints() or a
+                        numpy.core.records.recarray object, which is output by calc_constraints2()
+    :param filename: Name of pickle file to write data to
+
+    """
+    pickleable = ['dwell1_stats', 'dwells1', 'times', 'limits', 'max_dwell_ksec', 'model_spec', 
+                  'msids', 'name', 'n_ccd', 'n_sim', 'sim_inputs', 'start', 'state_col']
+
+    all_pickle_data = {}
+    for name in constraints:
+        pickle_data = {}
+        if isinstance(constraints[name], np.core.records.recarray):
+            all_pickle_data.update({name:constraints[name]})
+        else:
+            for key in constraints[name].__dict__.keys():
+                if key in pickleable:
+                    if key == 'start':
+                        pickle_data.update({key:constraints[name].__dict__[key].secs})
+                    else:
+                        pickle_data.update({key:constraints[name].__dict__[key]})
+            all_pickle_data.update({name:pickle_data})
+    pickle.dump(all_pickle_data, open(filename,'w'), protocol=2)
+
+
+def load_pyger_pickle(filename):
+    """ Load pyger data from pickle file back into object compatible with pyger plotting methods
+
+    :param filename: File name of pickled output from calc_constraints()
+
+    This is only meant to be used to read in the initial constraints object produced by
+    calc_constraints(), not the cooldown data produced by calc_constraints2(). The data prduced
+    by calc_constraints2() should be able to be read in with a simple pickle.load() function.
+    """
+    class saved_pyger_data(object):
+        def __init__(self, pickled_constraint):
+            for key in pickled_constraint:
+                self.__dict__.update({key:pickled_constraint[key]})
+
+    rawdata = pickle.load(open(filename,'r'))
+    pyger_compatible_data = {}
+    for name in rawdata.keys():
+        constraint = saved_pyger_data(rawdata[name])
+        pyger_compatible_data.update({name:constraint})
+
+    return pyger_compatible_data
+
+
 class ConstraintPline(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
         ConstraintModel.__init__(self, 'pline', sim_inputs, limits, max_dwell_ksec)

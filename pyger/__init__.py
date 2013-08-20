@@ -3,7 +3,8 @@ warnings.simplefilter('ignore')
 
 from .pyger import (calc_constraints, calc_constraints2, plot_dwells1, calc_dwell2_stats,
                     __version__, CtoF, ConstraintModel, ConstraintPline, ConstraintMinusZ, 
-                    ConstraintPSMC, ConstraintMinusYZ, ConstraintDPA, ConstraintTank)
+                    ConstraintPSMC, ConstraintMinusYZ, ConstraintDPA, ConstraintTank,
+                    save_pyger_pickle, load_pyger_pickle)
 
 from .make_sim_inputs import make_sim_inputs
 
