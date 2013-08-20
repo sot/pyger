@@ -1,7 +1,7 @@
 import warnings
 warnings.simplefilter('ignore')
 
-from .pyger import (calc_constraints, calc_constraints2, plot_dwells1, 
+from .pyger import (calc_constraints, calc_constraints2, plot_dwells1, calc_dwell2_stats,
                     __version__, CtoF, ConstraintModel, ConstraintPline, ConstraintMinusZ, 
                     ConstraintPSMC, ConstraintMinusYZ, ConstraintDPA, ConstraintTank)
 

@@ -145,7 +145,7 @@ class ConstraintMinusZ(ConstraintModel):
 
         return init_comps
 
-    def _get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1, **stateskw):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
@@ -172,7 +172,7 @@ class ConstraintMinusYZ(ConstraintModel):
 
         return init_comps
 
-    def _get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1, **stateskw):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
@@ -200,7 +200,7 @@ class ConstraintDPA(ConstraintModel):
         return init_comps
 
     def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
-                     clocking=1, simpos=75000):
+                     clocking=1, simpos=75000, **stateskw):
 
         if ccd_count is None:
             ccd_count = self.n_ccd
@@ -236,7 +236,7 @@ class ConstraintTank(ConstraintModel):
 
         return init_comps
 
-    def _get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1, **stateskw):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
@@ -266,7 +266,7 @@ class ConstraintPSMC(ConstraintModel):
         return init_comps
 
     def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
-                     clocking=1, simpos=75000):
+                     clocking=1, simpos=75000, **stateskw):
 
         if ccd_count is None:
             ccd_count = self.n_ccd
@@ -498,17 +498,43 @@ def calc_constraints2(constraints,
                                                          hot_dwell_temp_ratio=hot_dwell_temp_ratio, 
                                                          T_cool_ratio=T_cool_ratio,
                                                          ccd_count=n_ccd)
-                #constraint.calc_dwell1_stats(pitch_bins)
-
-    # dwells1 = merge_dwells1(constraints_list)
-    # constraints['all'] = ConstraintModel('all', sim_inputs, limits=None,
-    #                                      max_dwell_ksec=max_dwell_ksec)
-    # constraints['all'].dwells1 = dwells1
-    # constraints['all'].calc_dwell1_stats(pitch_bins)
-    # constraints['all'].start = start
 
     return cooldown
 
+
+
+def calc_dwell2_stats(dwell2_case):
+  """ Calculate relevant statistics for "cooldown" dwell.
+
+  :param dwell2_case: This is a Numpy recarray representing the output of calc_constraints2() for
+                      a single MSID. If running calc_constraints2() for multiple MSIDs, run
+                      calc_dwell2_stats() for each MSID individually.
+
+  :returns: Numpy recarray of relevant statistical data
+
+  """
+
+    dwell2_pitches = dwell2_case['dwell2_pitch_set'][0]
+    dwell2_times = dwell2_case['dwell2_times'].swapaxes(0,1)
+    dwell2_ind = ~np.isnan(dwell2_times)
+
+    stats = []
+    for timeset, good, pitch in zip(dwell2_times, dwell2_ind, dwell2_pitches):
+        t = np.sort(timeset[good])
+        if np.any(t):
+            stats.append((pitch, 
+                          t[int(len(t) * 0.1)],
+                          t[int(len(t) * 0.5)],
+                          t[int(len(t) * 0.9)]))
+        else:
+            stats.append((pitch, np.nan, np.nan, np.nan))
+
+    dtype = np.dtype([('pitch', np.float64),
+                      ('perc10', np.float64),
+                      ('perc50', np.float64),
+                      ('perc90', np.float64)])
+
+    return np.rec.fromrecords(stats, dtype)
 
 
 
