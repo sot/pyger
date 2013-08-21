@@ -554,15 +554,15 @@ def calc_constraints2(constraints,
 
 
 def calc_dwell2_stats(dwell2_case):
-  """ Calculate relevant statistics for "cooldown" dwell.
-
-  :param dwell2_case: This is a Numpy recarray representing the output of calc_constraints2() for
-                      a single MSID. If running calc_constraints2() for multiple MSIDs, run
-                      calc_dwell2_stats() for each MSID individually.
-
-  :returns: Numpy recarray of relevant statistical data
-
-  """
+    """ Calculate relevant statistics for "cooldown" dwell.
+  
+    :param dwell2_case: This is a Numpy recarray representing the output of calc_constraints2() for
+                        a single MSID. If running calc_constraints2() for multiple MSIDs, run
+                        calc_dwell2_stats() for each MSID individually.
+  
+    :returns: Numpy recarray of relevant statistical data
+  
+    """
 
     dwell2_pitches = dwell2_case['dwell2_pitch_set'][0]
     dwell2_times = dwell2_case['dwell2_times'].swapaxes(0,1)
