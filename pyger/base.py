@@ -429,7 +429,7 @@ class ConstraintModel(object):
             Ts_dwell1 = self.dwells1['Ts'][i_hot][msid_ind]
             Ts = Ts[msid_ind]
             T_threshold = Ts_dwell1[0] + (1 - T_cool_ratio) * (Ts_dwell1[-1] - Ts_dwell1[0])
-            t_interp = np.interp(T_threshold, Ts[::-1], times[::-1], left=np.nan, right=np.nan)
+            t_interp = np.interp(T_threshold, Ts[::-1], times[::-1])
             
             return t_interp, T_threshold
 
@@ -441,8 +441,8 @@ class ConstraintModel(object):
 
         msid_ind = self.msids.index(msid)
 
-        logger.info('{0}: simulating {2} cooldown dwells for each of the {1} hot dwells'\
-                     .format(self.name.upper(), len(hot_pitch_ind), len(dwell2_pitch_ind)))
+        logger.info('{0} - {1}: simulating {3} cooldown dwells for each of the {2} hot dwells'\
+                     .format(msid, self.name.upper(), len(hot_pitch_ind), len(dwell2_pitch_ind)))
         logger.info(('Using a hot dwell temperature ratio of {0} to determine cooldown dwell' + 
                        'starting conditions').format(hot_dwell_temp_ratio))
 
@@ -451,7 +451,7 @@ class ConstraintModel(object):
             logger.info('{0}: simulating cooldown dwells for hot dwell {1} of {2}'\
                         .format(self.name.upper(), j + 1, len(hot_pitch_ind)))
 
-            T_dwell2_0, duration = calculate_init_data(self, msid_ind, i_hot, hot_dwell_temp_ratio)
+            T_dwell2_0, dur_delta = calculate_init_data(self, msid_ind, i_hot, hot_dwell_temp_ratio)
 
             dwell2_pitch_set = self.dwells1['pitch'][dwell2_pitch_ind]
 
@@ -462,17 +462,31 @@ class ConstraintModel(object):
                 t_cool, T_cool = calc_cooldown_times(self, i_hot, times, Ts, msid_ind, T_cool_ratio)
                 t_cool_set.append(t_cool)
 
-            dwell2_case = (i_hot, self.dwells1['pitch'][i_hot], msid, duration, 
+            dwell1duration = self.dwells1['duration'][i_hot]
+            dwell2_case = (i_hot, self.dwells1['pitch'][i_hot], msid, dur_delta, dwell1duration,
                            self.dwells1['T0s'][i_hot], T_dwell2_0, dwell2_pitch_set, 
                            np.array(t_cool_set), T_cool)
 
             dwells2.append(dwell2_case)
-
+        
+        # Bogus data intended to show zero required cooling time (because no limiting condition
+        # was found). This is a bit of a hack, and better solutions will be considered in the
+        # future.
+        limits = np.array([1000,] * len(self.msids))
+        dwell2_pitch_set = np.array(self.dwells1['pitch'][dwell2_pitch_ind])
+        zerostart = np.array([np.nan,] * len(self.msids))
+        allnantime = np.array((np.nan,) * len(dwell2_pitch_ind))
+        if len(dwells2) == 0:
+            dwells2 = [(-1, 45, 'none', self.max_dwell_ksec * 1000, self.max_dwell_ksec * 1000, 
+                         zerostart, limits, dwell2_pitch_set, allnantime, 0),
+                        (-2, 169, 'none', self.max_dwell_ksec * 1000, self.max_dwell_ksec * 1000, 
+                         zerostart, limits, dwell2_pitch_set, allnantime, 0)]
 
         dtype = np.dtype([('dwell1_ind', np.int32), 
                           ('dwell1_pitch', np.float64),
-                          ('constraining_msid', '|S10'),
+                          ('msid', '|S10'),
                           ('dwell1_duration_delta', np.float64),
+                          ('dwell1_duration', np.float64),
                           ('T_dwell1_0', np.float64, len(self.msids) ),
                           ('T_dwell2_0', np.float64, len(self.msids) ),
                           ('dwell2_pitch_set', np.float64, len(dwell2_pitch_ind) ),

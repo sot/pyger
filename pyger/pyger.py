@@ -537,7 +537,10 @@ def calc_constraints2(constraints,
             if msid in constraint.msids:
 
                 if n_ccd is None:
-                    n_ccd = constraint.n_ccd
+                    if n_ccd in constraint.__dict__.keys():
+                        n_ccd = constraint.n_ccd
+                    else:
+                        n_ccd = 6
 
                 cooldown[msid] = constraint.calc_dwells2(msid,
                                                          start,
@@ -564,27 +567,25 @@ def calc_dwell2_stats(dwell2_case):
   
     """
 
-    dwell2_pitches = dwell2_case['dwell2_pitch_set'][0]
+    dwell2_pitches = dwell2_case['dwell2_pitch_set'][0] # Each set is identical
     dwell2_times = dwell2_case['dwell2_times'].swapaxes(0,1)
-    dwell2_ind = ~np.isnan(dwell2_times)
-
     stats = []
-    for timeset, good, pitch in zip(dwell2_times, dwell2_ind, dwell2_pitches):
-        t = np.sort(timeset[good])
-        if np.any(t):
-            stats.append((pitch, 
+    for timeset, pitch in zip(dwell2_times, dwell2_pitches):
+        t = np.sort(timeset)
+        stats.append((pitch, 
                           t[int(len(t) * 0.1)],
                           t[int(len(t) * 0.5)],
                           t[int(len(t) * 0.9)]))
-        else:
-            stats.append((pitch, np.nan, np.nan, np.nan))
 
     dtype = np.dtype([('pitch', np.float64),
                       ('perc10', np.float64),
                       ('perc50', np.float64),
                       ('perc90', np.float64)])
+    
+    stats = np.rec.fromrecords(stats, dtype)
+    stats.sort(order='pitch')
 
-    return np.rec.fromrecords(stats, dtype)
+    return stats
 
 
 
