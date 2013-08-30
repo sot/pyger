@@ -43,6 +43,14 @@
             "pftank2t" 
         ]
     }, 
+    "aca": {
+        "state_cols": [
+            "pitch" 
+        ], 
+        "msids": [
+            "aacccdpt" 
+        ]
+    }, 
     "pline": {
         "state_cols": [
             "pitch"

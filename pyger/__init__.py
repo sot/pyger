@@ -4,7 +4,7 @@ warnings.simplefilter('ignore')
 from .pyger import (calc_constraints, calc_constraints2, plot_dwells1, calc_dwell2_stats,
                     __version__, CtoF, ConstraintModel, ConstraintPline, ConstraintMinusZ, 
                     ConstraintPSMC, ConstraintMinusYZ, ConstraintDPA, ConstraintTank,
-                    save_pyger_pickle, load_pyger_pickle)
+                    ConstraintAca, save_pyger_pickle, load_pyger_pickle)
 
 from .make_sim_inputs import make_sim_inputs
 
@@ -63,6 +63,9 @@ def get_options(args=None):
     parser_sim.add_argument("--n-ccd",
                             type=int,
                             help="Number of ACIS CCDs")
+    parser_sim.add_argument("--max-aacccdpt",
+                            type=float,
+                            help="ACA CCD planning limit (degC)")
     parser_sim.add_argument("--max-dwell-ksec",
                             type=float,
                             help="Max allowed dwell time (ksec)")

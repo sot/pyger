@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import Ska.Numpy
 from Chandra.Time import DateTime
 import asciitable
-
 import xija
 
 from . import clogging
@@ -292,6 +291,28 @@ class ConstraintTank(ConstraintModel):
         return np.rec.fromrecords(states, names=names)
 
 
+class ConstraintAca(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+        model_spec = os.path.join(pkg_dir, 'aca_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'aca', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'aca0': T0s[0],
+                      'aacccdpt': T0s[0]}
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, **stateskw):
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
+        return np.rec.fromrecords(states, names=names)
+
+
 class ConstraintPSMC(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
         self.n_ccd = n_ccd
@@ -351,8 +372,8 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     plt.figure(figure, figsize=(6, 4))
     plt.clf()
     names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline',
-             '1dpamzt', 'pftank2t')
-    colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y')
+             '1dpamzt', 'pftank2t', 'aacccdpt')
+    colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y', 'g')
     for name, color in zip(names, colors):
         ok = dwells1['constraint_name'] == name
         plt.plot(dwells1['pitch'][ok], dwells1['duration'][ok] / 1000., '.' + color,
@@ -395,13 +416,14 @@ def calc_constraints(start='2013:001',
                      max_1pdeaat=52.5,
                      max_1dpamzt=31.5,
                      max_pftank2t=93.0,
+                     max_aacccdpt=-15.0,
                      n_ccd=6,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
                      max_pitch=169,
                      bin_pitch=2,
-                     constraint_models=('minus_yz', 'psmc', 'pline', 'dpa', 'tank'),
+                     constraint_models=('minus_yz', 'psmc', 'pline', 'dpa', 'tank', 'aca'),
                      ):
     """
     Calculate allowed dwell times coming out of perigee given a set of
@@ -415,6 +437,7 @@ def calc_constraints(start='2013:001',
     :param max_1pdeaat: 1PDEAAT planning limit (default=52.5 degC)
     :param max_1dpamzt: 1DPAMZT planning limit (default=32.5 degC)
     :param max_pftank2t: PFTANK2T planning limit (default=93.0 degF)
+    :param max_aacccdpt: ACA CCD planning limit (default=-15.0 degC)
     :param n_ccd: number of ACIS CCDs being used
     :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
     :param sim_file: simulation inputs file from "pyger make" (default=sim_inputs.pkl)
@@ -463,6 +486,10 @@ def calc_constraints(start='2013:001',
         constraints['tank'] = ConstraintTank(sim_inputs,
                                              limits={'pftank2t': FtoC(max_pftank2t)},
                                              max_dwell_ksec=max_dwell_ksec)
+    if 'aca' in constraint_models:
+        constraints['aca'] = ConstraintAca(sim_inputs,
+                                           limits={'aacccdpt': max_aacccdpt},
+                                           max_dwell_ksec=max_dwell_ksec)
     if 'pline' in constraint_models:
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,
@@ -494,8 +521,8 @@ def calc_constraints2(constraints,
                       pitch_range=None,
                       hot_dwell_temp_ratio=0.9,
                       T_cool_ratio=0.9,
-                      constraint_models=('minus_yz', 'psmc', 'dpa', 'tank'),
-                      msids=('tephin', 'tcylaft6', '1pdeaat', '1dpamzt', 'pftank2t')
+                      constraint_models=('minus_yz', 'psmc', 'dpa', 'tank', 'aca'),
+                      msids=('tephin', 'tcylaft6', '1pdeaat', '1dpamzt', 'pftank2t', 'aacccdpt')
                       ):
     """
     Calculate allowed dwell times coming out of perigee given a set of
@@ -518,7 +545,8 @@ def calc_constraints2(constraints,
                          starting at the given hot conditions. A ratio of 0.9 means the MSID
                          has to have cooled back down 90% to the original hot dwell starting
                          temperature.
-    :param constraint_models: constraint models, default=('minus_yz', 'psmc', 'dpa', 'tank')
+    :param constraint_models: constraint models, default=('minus_yz', 'psmc', 'dpa', 'tank',
+                              'aacccdpt')
 
     :returns: dict of computed constraint model objects
     """
