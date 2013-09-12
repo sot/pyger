@@ -177,6 +177,8 @@ class ConstraintModel(object):
 
         if not limits:
             limits = self.limits
+        else:
+            self.limits = limits
 
         for dwell1_num, dwell in enumerate(self.dwells1):
 
@@ -302,7 +304,7 @@ class ConstraintModel(object):
 
 
     def calc_dwells2(self, msid, start, stop, times, pitch_num, hot_dwell_temp_ratio, 
-                     T_cool_ratio, pitch_range=None, **statekw):
+                     T_cool_ratio, pitch_range=None, match_cool_time=True, **statekw):
         """ Calculate model temperature at "non-hot" pitch ranges, starting at hot conditions
 
         :param msid: MSID for which to calculate cooling times
@@ -311,8 +313,6 @@ class ConstraintModel(object):
         :param times: Numpy array of times for which to calculate temperatures, not necessarily
                       the same times as used in the initial dwell
         :param pitch_num: Number of cool pitch values to simulate for each hot dwell
-        :param pitch_range: Two element list or tuple defining target cooling pitch range. This
-                            allows one to override the default cool pitch values.
         :param hot_dwell_temp_ratio: Time ratio during hot dwell for which to extract cooldown
                                      dwell starting conditions. This allows one to initiate a
                                      cooldown simulation at any point during a hot dwell, not
@@ -324,6 +324,13 @@ class ConstraintModel(object):
                              starting at the given hot conditions. A ratio of 0.9 means the MSID
                              has to have cooled back down 90% to the original hot dwell starting
                              temperature.
+        :param pitch_range: Two element list or tuple defining target cooling pitch range. This
+                            allows one to override the default cool pitch values.
+        :param match_cool_time: Flag used to indicate whether or not the user wants to clip the
+                                time from t=0 to the time where the temperature reaches the
+                                T_cool_ratio from the heatup dwell time. This facilitates an equal
+                                comparison of dwell times (i.e. delta temp for heatup equals delta
+                                temp for cooldown so time comparisons are relevant).
         :param **statekw: Model state information; allows one to specify different states for the
                           cooldown dwell. For example one could simulate the initial dwell with 6
                           ccds and simulate the cooldown dwell with 4 ccds.
@@ -334,11 +341,12 @@ class ConstraintModel(object):
         Regarding pitch values used:
         1) By default pitch values previously used are re-used as the sample set for the cooldown 
            dwells. This makes dividing up the hot vs. cold pitch values much easier. Dividing up 
-           the pitch values between hot and cold pitch values reduces the number of model runs since
-           there is no need to run a "cooldown" dwell for at hot pitch value. If new pitch values
-           were used, the current constraint profile would have to be mapped in some fashion,
-           complicating the process of finding the required balance of hot and cold time. Also, it
-           doesn't make sense to run a cooldown dwell for an already cold dwell.
+           the pitch values between hot and "not hot" (i.e. cold) pitch values reduces the number
+           of model runs since there is no need to run a "cooldown" dwell for at hot pitch value.
+           If new pitch values were used, the current constraint profile would have to be mapped
+           in some fashion, complicating the process of finding the required balance of hot and
+           cold time. Also, it doesn't make sense to run a cooldown dwell for an already cold 
+           dwell.
 
         2) Since some constraints are strongly dependant on other factors besides pitch (e.g. dpa),
            the ability to override the default behavior described above is built in. If this 
@@ -351,20 +359,13 @@ class ConstraintModel(object):
 
         Regarding time span of second set of dwells ("cooldown dwells"):
         Cooldown dwells are run from "start" to "stop"; both are inputs to this function. The 
-        total cooling time (defined in start, stop, times) should be longer than the dwell time
-        used in the initial dwell to adequately map cooling times.
+        total cooling time (defined in start, stop, times) should be equal to or longer than the 
+        maximum dwell time used in the initial dwell so cooling times are adequately mapped.
 
         Regarding filtering:
         Dwells that have zero duration (as specifed in the self.dwells1 datastructure) are 
         filtered out. These will likely have final temperatures that are higher than the specified
         limit.
-
-        Regarding output datastructure:
-        Data is returned in the form of a dictionary due to the complex format. Each starting
-        "hot" dwell is simulated as maneuvering to a range of "non heating" pitch values. Each
-        of these subsequent simulations returns modeled temperatures for each MSID in the model.
-        I ended up spending too much time puzzling out the record array datatype definition so I
-        used a dictionary for now. This is something I'd like to revisit when time permits.
         
         """
 
@@ -410,8 +411,7 @@ class ConstraintModel(object):
             T = dwells1['Ts'][i_hot]
             times = dwells1['times'][i_hot]
 
-            tlim = times[0] + dwells1['duration'][i_hot]
-            Tlim = np.interp(tlim, times, T[msid_ind]) # In case a custom limit was used
+            Tlim = self.limits[self.msids[msid_ind]]
 
             # Note that if the ratio is small enough, it is possible the resulting temp appears
             # twice in the dwell since temperatures will dip sometimes before rising
@@ -424,14 +424,44 @@ class ConstraintModel(object):
             return T_dwell2_0, t_dwell2
 
 
-        def calc_cooldown_times(self, i_hot, times, Ts, msid_ind, T_cool_ratio):
+        def calc_cooldown_times(self, i_hot, times, Ts_dwell2, msid_ind, T_cool_ratio):
             times = times - times[0]
             Ts_dwell1 = self.dwells1['Ts'][i_hot][msid_ind]
-            Ts = Ts[msid_ind]
+            Ts_dwell2 = Ts_dwell2[msid_ind]
             T_threshold = Ts_dwell1[0] + (1 - T_cool_ratio) * (Ts_dwell1[-1] - Ts_dwell1[0])
-            t_interp = np.interp(T_threshold, Ts[::-1], times[::-1])
+            t_interp = np.interp(T_threshold, Ts_dwell2[::-1], times[::-1])
             
             return t_interp, T_threshold
+
+        def clip_dwell1_time(self, msid_ind, i_hot, T_cool_ratio, dur_delta):
+            T = self.dwells1['Ts'][i_hot][msid_ind]
+            times = self.dwells1['times'][i_hot]
+            times = times - times[0]
+
+            Tlim = self.limits[self.msids[msid_ind]]
+
+            # If the user does run with more than one limit active (e.g. tephin and tcylaft6),
+            # then the temperature may not actually reach the limit for the msid specified in the
+            # calc_dwells2() function call. More specfically, the dwell will be registered in the
+            # self.dwells1 datastructure due to reaching a different limit, however this particular
+            # dwell may be unconstraining for the msid specified. In this case, just calculate the
+            # T_ratio using the first and last temperatures (specified in the code under "else")
+            if np.any(T >= Tlim):
+                T_ratio = T[0] + (1 - T_cool_ratio) * (Tlim - T[0])
+            else:
+                T_ratio = T[0] + (1 - T_cool_ratio) * (T[-1] - T[0])
+
+            # It is possible that the "T_ratio" temperature was reached twice in the heatup dwell
+            # due to the varying time constants of the nodes in the model. Make sure the first
+            # instance is used.
+            ind = np.arange(len(T))[T > T_ratio]
+
+            t_clip =  np.interp(T_ratio, T[:(ind[0] + 1)], times[:(ind[0] + 1)])
+
+            dur_delta = dur_delta - t_clip
+
+            return dur_delta
+
 
 
         # Find the indices to the appropriate inital hot pitch values, and random cool pitch 
@@ -453,6 +483,9 @@ class ConstraintModel(object):
 
             T_dwell2_0, dur_delta = calculate_init_data(self, msid_ind, i_hot, hot_dwell_temp_ratio)
 
+            if match_cool_time is True:
+                dur_delta = clip_dwell1_time(self, msid_ind, i_hot, T_cool_ratio, dur_delta)
+
             dwell2_pitch_set = self.dwells1['pitch'][dwell2_pitch_ind]
 
             t_cool_set = []
@@ -471,7 +504,7 @@ class ConstraintModel(object):
         
         # Bogus data intended to show zero required cooling time (because no limiting condition
         # was found). This is a bit of a hack, and better solutions will be considered in the
-        # future.
+        # future. This helps to avoid errors when automating pyger data generation.
         limits = np.array([1000,] * len(self.msids))
         dwell2_pitch_set = np.array(self.dwells1['pitch'][dwell2_pitch_ind])
         zerostart = np.array([np.nan,] * len(self.msids))

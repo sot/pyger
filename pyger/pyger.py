@@ -560,6 +560,8 @@ def calc_constraints2(constraints,
 
     constraints_list = [constraints[x] for x in constraint_models]
     cooldown = {}
+    coolstats = {}
+    hotstats = {}
     for constraint in constraints_list:
         for msid in msids:
             if msid in constraint.msids:
@@ -579,13 +581,15 @@ def calc_constraints2(constraints,
                                                          hot_dwell_temp_ratio=hot_dwell_temp_ratio, 
                                                          T_cool_ratio=T_cool_ratio,
                                                          ccd_count=n_ccd)
+                coolstats[msid] = calc_dwell2_cool_stats(cooldown[msid])
+                hotstats[msid] = calc_dwell2_hot_stats(cooldown[msid])
 
-    return cooldown
+    return cooldown, coolstats, hotstats
 
 
 
-def calc_dwell2_stats(dwell2_case):
-    """ Calculate relevant statistics for "cooldown" dwell.
+def calc_dwell2_cool_stats(dwell2_case):
+    """ Calculate relevant statistics for "cooldown" dwell simulations.
   
     :param dwell2_case: This is a Numpy recarray representing the output of calc_constraints2() for
                         a single MSID. If running calc_constraints2() for multiple MSIDs, run
@@ -597,10 +601,10 @@ def calc_dwell2_stats(dwell2_case):
 
     dwell2_pitches = dwell2_case['dwell2_pitch_set'][0] # Each set is identical
     dwell2_times = dwell2_case['dwell2_times'].swapaxes(0,1)
-    stats = []
+    coolstats = []
     for timeset, pitch in zip(dwell2_times, dwell2_pitches):
         t = np.sort(timeset)
-        stats.append((pitch, 
+        coolstats.append((pitch, 
                           t[int(len(t) * 0.1)],
                           t[int(len(t) * 0.5)],
                           t[int(len(t) * 0.9)]))
@@ -610,10 +614,51 @@ def calc_dwell2_stats(dwell2_case):
                       ('perc50', np.float64),
                       ('perc90', np.float64)])
     
-    stats = np.rec.fromrecords(stats, dtype)
-    stats.sort(order='pitch')
+    coolstats = np.rec.fromrecords(coolstats, dtype)
+    coolstats.sort(order='pitch')
 
-    return stats
+    return coolstats
+
+
+def calc_dwell2_hot_stats(dwell2_case):
+    """ Calculate relevant statistics for hot dwells used to seed cooldown simulations.
+  
+    :param dwell2_case: This is a Numpy recarray representing the output of calc_constraints2() for
+                        a single MSID. If running calc_constraints2() for multiple MSIDs, run
+                        calc_dwell2_stats() for each MSID individually.
+  
+    :returns: Numpy recarray of relevant statistical data
+  
+    Although the hot dwell data was already calculated and is present in the dwells1 datastructure,
+    the full hot dwell durations are not 100% comparable to the cooldown dwells due to the
+    cooldown temperature ratio (T_cool_ratio) used to determine when a cooldown dwell has reached
+    "close enough" to the original starting temperature. The comparable hot dwell time has a
+    portion of the initial dwell time "clipped" from the total duration. The amount of time clipped is equal to
+    the amount of time it would take to reach the "close enough" cooldown temperature during the
+    hot dwell starting at the dwell1 T0.
+
+    """
+
+    dwell2_case.sort(order='dwell1_pitch')
+    
+    pitch_set = np.arange(min(dwell2_case.dwell1_pitch), max(dwell2_case.dwell1_pitch) + 1, 2)
+    pitch_pairs = [(pitch_set[n], pitch_set[n + 1]) for n in range(len(pitch_set) - 1)]
+    
+    hotstats = []
+    for p in pitch_pairs:
+        ind1 = dwell2_case.dwell1_pitch >= p[0]
+        ind2 = dwell2_case.dwell1_pitch < p[1]
+        ind = ind1 & ind2
+        if any(ind):
+            hotstats.append((np.mean(p), np.mean(dwell2_case.dwell1_duration[ind]), np.mean(dwell2_case.dwell1_duration_delta[ind])))
+
+    dtype = np.dtype([('pitch', np.float64),
+                      ('dwell1_duration', np.float64),
+                      ('dwell1_duration_delta', np.float64)])
+
+    hotstats = np.rec.fromrecords(hotstats, dtype)
+
+    return hotstats
 
 
 
