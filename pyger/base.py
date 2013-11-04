@@ -238,21 +238,28 @@ class ConstraintModel(object):
                                                       ])
 
 
-    def find_long_hot_pitch_dwells(self, perc=0.2):
+    def find_long_hot_pitch_dwells(self, msid, perc=0.2):
         """ Select the initial hot pitch sims that start with a low temperature (bottom 20%) 
 
+        :param msid: MSID used to filter hot pitch dwells
         :param perc: fraction of starting temperatures (0.2 = 20% lowest temperatures)
 
         :returns: index into self.dwells1 datastructure
         
         This returns the index into the self.dwells1 datastructure, indicating which of those sims
         that reached a limit, started at the specified percentile/fraction of coldest starting
-        temperatures. Invariably, most of these will sims will have started within a narrow pitch
-        range before "maneuvering" to the simulated "hot" pitch. This is important to keep in mind
-        since these lowest temperatures will often not be able to be reached during the second dwell
-        set of simulations (think of these as the "cooldown" simulations).
+        temperatures for the MSID indicated. 
+
+        Note about the data returned:
+        Invariably, most of these will sims will have startedwithin a narrow pitch range before
+        "maneuvering" to the simulated "hot" pitch. This isimportant to keep in mind since these
+        lowest temperatures will often not be able to be reached during the second dwell set of
+        simulations (think of these as the "cooldown" simulations). This is the purpose of adding a
+        pad to the "cooled" value when calculating cooldown times.
  
         """
+
+        msid_ind = self.msids.index(msid)
 
         # Eliminate sims that have zero duration 
         good_sim = self.dwells1['duration'] > 0
@@ -265,7 +272,7 @@ class ConstraintModel(object):
         start_temps_transpose = start_temps.transpose()
 
         # Assemble a list of indices for the sorted array for each msid 
-        sort_ind = [msid_temps.argsort() for msid_temps in start_temps_transpose]
+        sort_ind = start_temps_transpose[msid_ind].argsort()
 
         # Build a list of indices from 0 to the index representing "perc" of the total 
         # length of the array, i.e. 0..19 for an array 100 elements long 
@@ -273,7 +280,7 @@ class ConstraintModel(object):
 
         # Get the first N indices in the sorted arrays of each msid. This represents the
         # lowest N starting values for each msid. N is the length of 'ind' 
-        lowest_temps_ind = np.array([sorted_msid_ind[ind] for sorted_msid_ind in sort_ind])
+        lowest_temps_ind = sort_ind[ind]
 
         # Check to see if enough hot pitch values were found. If too few are found then 
         # either this constraint is not limited in this configuration, or there is not enough
@@ -282,12 +289,10 @@ class ConstraintModel(object):
         hot_pitch_len = len(hot_pitch_ind_all)
 
         if hot_pitch_len > 20:
-
             # Return the union of each of these index arrays so the lowest N values for each
             # msid are included, return the indices in the context of the original dwells 
             # array
-            
-            hot_pitch_ind = hot_pitch_ind_all[np.array(list(set(lowest_temps_ind.flatten())))]
+            hot_pitch_ind = hot_pitch_ind_all[lowest_temps_ind]
 
         else:
             sentence_fragment = ('hot pitch dwells were found to seed the cooldown ' +
@@ -466,7 +471,7 @@ class ConstraintModel(object):
 
         # Find the indices to the appropriate inital hot pitch values, and random cool pitch 
         # values 
-        hot_pitch_ind = self.find_long_hot_pitch_dwells()
+        hot_pitch_ind = self.find_long_hot_pitch_dwells(msid)
         dwell2_pitch_ind = find_dwell2_pitch_ind(pitch_range, pitch_num=pitch_num)
 
         msid_ind = self.msids.index(msid)
