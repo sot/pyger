@@ -1,0 +1,10 @@
+Steps to generate PDF from IPython Notebook
+
+1) ipython nbconvert --to latex Pyger_Demo.ipynb 
+2) open Pyger_Demo.tex in TeXworks
+3) add author name
+4) change title to Pyger IPython Notebook
+5) modify margins by adding:
+    % Modify Margins
+    \usepackage[margin=0.5in]{geometry}
+6) typeset

@@ -1,0 +1,10 @@
+('dwell1_ind',
+ 'dwell1_pitch',
+ 'msid',
+ 'dwell1_duration_delta',
+ 'dwell1_duration',
+ 'T_dwell1_0',
+ 'T_dwell2_0',
+ 'dwell2_pitch_set',
+ 'dwell2_times',
+ 'dwell2_cool_temp')

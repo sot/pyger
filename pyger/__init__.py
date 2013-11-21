@@ -5,7 +5,7 @@ from .pyger import (calc_constraints, calc_constraints2, plot_dwells1,
                     __version__, CtoF, ConstraintModel, ConstraintPline, ConstraintMinusZ, 
                     ConstraintPSMC, ConstraintMinusYZ, ConstraintDPA, ConstraintTank,
                     ConstraintAca, save_pyger_pickle, load_pyger_pickle,
-                    read_cases, run_pyger_cases, PostPyger)
+                    read_cases, run_pyger_cases, PostPyger, plot_cooldown)
 
 from .make_sim_inputs import make_sim_inputs
 

@@ -393,6 +393,72 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
         plt.savefig(plot_file)
 
 
+def plot_cooldown(constraints1, constraints2, coolstats, hotstats, model, msid, limit, filename, 
+                  save_to_file=True, additional_title_text=None):
+    colorpalate = ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"]
+    lightblue = "#81CCf4"
+
+    if additional_title_text is None:
+        additional_title_text = ''
+
+    # fill in NaNs in cool stats for hot regions, sort by pitch
+    nans = np.array([np.nan] * len(hotstats.pitch))
+    coolpitch = np.concatenate((coolstats.pitch, hotstats.pitch), axis=0)
+    coolperc10 = np.concatenate((coolstats.perc10, nans), axis=0)
+    coolperc50 = np.concatenate((coolstats.perc50, nans), axis=0)
+    coolperc90 = np.concatenate((coolstats.perc90, nans), axis=0)
+    ind = coolpitch.argsort()
+    coolpitch = coolpitch[ind]
+    coolperc10 = coolperc10[ind]
+    coolperc50 = coolperc50[ind]
+    coolperc90 = coolperc90[ind]
+    
+    # Create plot framework
+    fig = plt.figure(figsize=[14,8], facecolor='w')
+    rect = [0.06, 0.1, 0.88, 0.8]
+    ax = fig.add_axes(rect)
+
+    # Plot data
+    ax.plot(constraints2.dwell2_pitch_set, constraints2.dwell2_times, '.', 
+            color=lightblue, alpha=0.1)
+    ax.fill_between(coolpitch, coolperc10, coolperc90, facecolor=colorpalate[1], alpha=0.5)
+    ax.plot(coolpitch, coolperc50, label='50 Perc Cooldown Time', linewidth=3, color=colorpalate[1])
+    ax.plot(coolpitch, coolperc10, label='10 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
+    ax.plot(coolpitch, coolperc90, label='90 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
+
+    ax.plot(constraints1['all'].dwell1_stats.pitch, constraints1['all'].dwell1_stats.dur90,
+            linewidth=2, color=[0.4, 0.4, 0.4], label='Max Dwell Time')
+
+    dwell1pitch = constraints2.dwell1_pitch
+    #duration = constraints2.dwell1_duration
+    duration_delta = constraints2.dwell1_duration_delta
+
+    ax.plot(dwell1pitch, duration_delta, '.', color=colorpalate[0], alpha=0.4)
+    ax.plot(hotstats.pitch, hotstats.dwell1_duration_delta, color=colorpalate[0], label='Heatup Time From Tcooled to Limit', linewidth=3)
+    ax.fill_between(hotstats.pitch, 0, hotstats.dwell1_duration_delta, facecolor=colorpalate[0], alpha=0.2)
+
+    # Annotate and format the plot
+    ax.legend(loc='upper center')
+    ylim = ax.get_ylim()
+    yticks = np.arange(ylim[0], ylim[1] + 1, 25000)
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticks/1000.)
+    ax.set_ylim(ylim)
+    ax.set_title('{0}: Date:{1}, Limit={2}{3}'.format(msid.upper(),
+                                                      DateTime(constraints1[model].start).date[:8],
+                                                      str(float(limit)),
+                                                      additional_title_text))
+    ax.set_xticks(range(45,175,5))
+    ax.set_xlim(45, 170)
+    ax.grid()
+    ax.set_ylabel('Dwell Time in Kiloseconds')
+    ax.set_xlabel('Pitch')
+
+    # Save plot to file
+    if save_to_file:
+        fig.savefig(filename)
+
+
 def merge_dwells1(constraints):
     """Merge the dwells in the ``constraints`` list, finding the shortest from among the
     constraints.
