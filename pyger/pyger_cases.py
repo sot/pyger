@@ -19,7 +19,7 @@ def read_cases(csv_casefile):
     return cases
 
 
-def run_pyger_cases(cases):
+def run_pyger_cases(cases, savedwell1=False):
     
     for case in cases:
 
@@ -35,8 +35,9 @@ def run_pyger_cases(cases):
                                               n_sim=int(case['n_sim']),
                                               max_dwell_ksec=float(case['max_dwell_ksec']),
                                               constraint_models=models)
-        pyger.save_pyger_pickle(constraints1, case['filename'] + '_dwell1.pkl')
-        print('Saving to {0}'.format(case['filename'] + '_dwell1.pkl'))
+        if savedwell1:
+            pyger.save_pyger_pickle(constraints1, case['filename'] + '_dwell1.pkl')
+            print('Saving to {0}'.format(case['filename'] + '_dwell1.pkl'))
 
         constraints2, coolstats, hotstats = pyger.calc_constraints2(
                                                     constraints1,

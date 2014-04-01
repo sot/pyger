@@ -503,7 +503,7 @@ class ConstraintModel(object):
             dwell1duration = self.dwells1['duration'][i_hot]
             dwell2_case = (i_hot, self.dwells1['pitch'][i_hot], msid, dur_delta, dwell1duration,
                            self.dwells1['T0s'][i_hot], T_dwell2_0, dwell2_pitch_set, 
-                           np.array(t_cool_set), T_cool)
+                           np.array(t_cool_set), T_cool, self.start.date, DateTime(start).date)
 
             dwells2.append(dwell2_case)
         
@@ -516,9 +516,9 @@ class ConstraintModel(object):
         allnantime = np.array((np.nan,) * len(dwell2_pitch_ind))
         if len(dwells2) == 0:
             dwells2 = [(-1, 45, 'none', self.max_dwell_ksec * 1000, self.max_dwell_ksec * 1000, 
-                         zerostart, limits, dwell2_pitch_set, allnantime, 0),
+                         zerostart, limits, dwell2_pitch_set, allnantime, 0, self.start.date, DateTime(start).date),
                         (-2, 169, 'none', self.max_dwell_ksec * 1000, self.max_dwell_ksec * 1000, 
-                         zerostart, limits, dwell2_pitch_set, allnantime, 0)]
+                         zerostart, limits, dwell2_pitch_set, allnantime, 0, self.start.date, DateTime(start).date)]
 
         dtype = np.dtype([('dwell1_ind', np.int32), 
                           ('dwell1_pitch', np.float64),
@@ -529,7 +529,9 @@ class ConstraintModel(object):
                           ('T_dwell2_0', np.float64, len(self.msids) ),
                           ('dwell2_pitch_set', np.float64, len(dwell2_pitch_ind) ),
                           ('dwell2_times', np.float64, len(dwell2_pitch_ind) ),
-                          ('dwell2_cool_temp', np.float64) 
+                          ('dwell2_cool_temp', np.float64),
+                          ('dwell1_start', '|S21'),
+                          ('dwell2_start', '|S21')
                           ])
 
         return  np.rec.fromrecords(dwells2, dtype=dtype)

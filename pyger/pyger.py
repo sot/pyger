@@ -393,7 +393,7 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
         plt.savefig(plot_file)
 
 
-def plot_cooldown(constraints1, constraints2, coolstats, hotstats, model, msid, limit, filename, 
+def plot_cooldown(constraints2, coolstats, hotstats, model, msid, limit, filename, 
                   save_to_file=True, additional_title_text=None):
     colorpalate = ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"]
     lightblue = "#81CCf4"
@@ -426,7 +426,7 @@ def plot_cooldown(constraints1, constraints2, coolstats, hotstats, model, msid, 
     ax.plot(coolpitch, coolperc10, label='10 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
     ax.plot(coolpitch, coolperc90, label='90 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
 
-    ax.plot(constraints1['all'].dwell1_stats.pitch, constraints1['all'].dwell1_stats.dur90,
+    ax.plot(hotstats.pitch, hotstats.dwell1_duration,
             linewidth=2, color=[0.4, 0.4, 0.4], label='Max Dwell Time')
 
     dwell1pitch = constraints2.dwell1_pitch
@@ -445,7 +445,7 @@ def plot_cooldown(constraints1, constraints2, coolstats, hotstats, model, msid, 
     ax.set_yticklabels(yticks/1000.)
     ax.set_ylim(ylim)
     ax.set_title('{0}: Date:{1}, Limit={2}{3}'.format(msid.upper(),
-                                                      DateTime(constraints1[model].start).date[:8],
+                                                      DateTime(constraints2[0].dwell1_start).date[:8],
                                                       str(float(limit)),
                                                       additional_title_text))
     ax.set_xticks(range(45,175,5))
