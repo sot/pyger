@@ -438,7 +438,7 @@ def plot_cooldown(constraints2, coolstats, hotstats, model, msid, limit, filenam
     ax.fill_between(hotstats.pitch, 0, hotstats.dwell1_duration_delta, facecolor=colorpalate[0], alpha=0.2)
 
     # Annotate and format the plot
-    ax.legend(loc='upper center')
+    ax.legend(loc='best')
     ylim = ax.get_ylim()
     yticks = np.arange(ylim[0], ylim[1] + 1, 25000)
     ax.set_yticks(yticks)
