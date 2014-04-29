@@ -723,7 +723,10 @@ def calc_dwell2_hot_stats(dwell2_case):
                       ('dwell1_duration', np.float64),
                       ('dwell1_duration_delta', np.float64)])
 
-    hotstats = np.rec.fromrecords(hotstats, dtype)
+    
+    # This is a bit of a hack, but prevents the recarray conversion from failing
+    if len(hotstats) > 0:
+        hotstats = np.rec.fromrecords(hotstats, dtype)
 
     return hotstats
 
