@@ -31,6 +31,7 @@ def run_pyger_cases(cases, savedwell1=False):
                                               max_1pdeaat=float(case['max_1pdeaat']),
                                               max_1dpamzt=float(case['max_1dpamzt']),
                                               max_pftank2t=float(case['max_pftank2t']),
+                                              max_aacccdpt=float(case['max_aacccdpt']),
                                               n_ccd=int(case['n_ccd_dwell1']),
                                               n_sim=int(case['n_sim']),
                                               max_dwell_ksec=float(case['max_dwell_ksec']),
