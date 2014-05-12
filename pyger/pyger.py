@@ -591,12 +591,12 @@ def calc_constraints(start='2013:001',
                                            max_dwell_ksec=max_dwell_ksec)
 
 
-    if '4rt700t' in constraint_models:
+    if 'fwdblkhd' in constraint_models:
         constraints['4rt700t'] = ConstraintFwdblkhd(sim_inputs,
                                            limits={'4rt700t': max_4rt700t},
                                            max_dwell_ksec=max_dwell_ksec)
 
-        
+
     if 'pline' in constraint_models:
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,
