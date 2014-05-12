@@ -43,6 +43,14 @@
             "pftank2t" 
         ]
     }, 
+    "fwdblkhd": {
+        "state_cols": [
+            "pitch" 
+        ], 
+        "msids": [
+            "4rt700t" 
+        ]
+    }, 
     "aca": {
         "state_cols": [
             "pitch" 
