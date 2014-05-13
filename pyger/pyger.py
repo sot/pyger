@@ -593,7 +593,7 @@ def calc_constraints(start='2013:001',
 
     if 'fwdblkhd' in constraint_models:
         constraints['fwdblkhd'] = ConstraintFwdblkhd(sim_inputs,
-                                           limits={'4rt700t': max_4rt700t},
+                                           limits={'4rt700t': FtoC(max_4rt700t)},
                                            max_dwell_ksec=max_dwell_ksec)
 
 
