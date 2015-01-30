@@ -2,11 +2,14 @@
 import numpy as np
 import pickle
 import csv
-import pandas as pd
 import os
 
 from Chandra.Time import DateTime
 import pyger
+try:
+    import pandas as pd
+except Exception, e:
+    print('Pandas not available so pyger.PostPyger() is not available.')
 
 
 def read_cases(csv_casefile):
@@ -26,7 +29,6 @@ def run_pyger_cases(cases, savedwell1=False):
         models = (case['constraint_model'],)
         msids = (case['msid'].lower(),)
         constraints1 = pyger.calc_constraints(start=case['start'], 
-                                              max_tephin=float(case['max_tephin']),
                                               max_tcylaft6=float(case['max_tcylaft6']),
                                               max_1pdeaat=float(case['max_1pdeaat']),
                                               max_1dpamzt=float(case['max_1dpamzt']),
@@ -38,7 +40,9 @@ def run_pyger_cases(cases, savedwell1=False):
                                               max_dwell_ksec=float(case['max_dwell_ksec']),
                                               constraint_models=models)
         if savedwell1:
-            pyger.save_pyger_pickle(constraints1, case['filename'] + '_dwell1.pkl')
+            nccd = unicode(int(case['n_ccd_dwell1']))
+            filename = case['filename'] + '_' + nccd + 'ccd_dwell1.pkl'
+            pyger.save_pyger_pickle(constraints1, filename)
             print('Saving to {0}'.format(case['filename'] + '_dwell1.pkl'))
 
         constraints2, coolstats, hotstats = pyger.calc_constraints2(
@@ -51,7 +55,9 @@ def run_pyger_cases(cases, savedwell1=False):
                                                     constraint_models=models,
                                                     msids=msids,
                                                     n_ccd=int(case['n_ccd_dwell2']))
-        filename = case['filename'] + '_dwell2.pkl'
+        
+        nccd = unicode(int(case['n_ccd_dwell2']))
+        filename = case['filename'] + '_' + nccd + 'ccd_dwell2.pkl'
         pickle.dump((constraints2, coolstats, hotstats), open(filename,'w'), protocol=2)
         print('Saving to {0}'.format(filename))
 
@@ -105,7 +111,7 @@ class PostPyger(object):
         model = case['constraint_model']
         max_dwell_sec = float(case['max_dwell_ksec'])*1000
 
-        if len(data) > 0:
+        if np.size(hotstats[msid].pitch) > 0:
             
             hot_max = np.interp(self.pitch_set, hotstats[msid].pitch,
                                 hotstats[msid].dwell1_duration, left=np.NaN, right=np.NaN)
