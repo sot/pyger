@@ -317,7 +317,7 @@ class ConstraintFwdblkhd(ConstraintModel):
 
 class ConstraintTcylaft6(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec):
-        model_spec = os.path.join(pkg_dir, 'tcylaft6_spec_linear.json')
+        model_spec = os.path.join(pkg_dir, 'tcylaft6_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
         ConstraintModel.__init__(self, 'tcylaft6', sim_inputs, limits,
                                  max_dwell_ksec)
