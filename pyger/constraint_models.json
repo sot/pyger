@@ -17,7 +17,6 @@
         ], 
         "msids": [
             "pmtank3t", 
-            "tmzp_my", 
             "tephin", 
             "tcylaft6"
         ]
@@ -49,6 +48,14 @@
         ], 
         "msids": [
             "4rt700t" 
+        ]
+    }, 
+    "tcylaft6": {
+        "state_cols": [
+            "pitch" 
+        ], 
+        "msids": [
+            "tcylaft6" 
         ]
     }, 
     "aca": {

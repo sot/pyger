@@ -214,11 +214,11 @@ class ConstraintMinusYZ(ConstraintModel):
         init_comps = {'pitch': (states['pitch'], state_times),
                       'eclipse': False,
                       'pmtank3t': T0s[0],
-                      'tmzp_my': T0s[1],
-                      'tephin': T0s[2],
-                      'tcylaft6': T0s[3],
-                      'pseudo_0': T0s[3] - 4.0,
-                      'pseudo_1': T0s[0]}
+                      'tephin': T0s[1],
+                      'tcylaft6': T0s[2],
+                      'tcylaft6_0': T0s[2] - 4.0,
+                      'pmtank3t_0': T0s[0],
+                      'tephin_0': T0s[1]}
 
         return init_comps
 
@@ -306,6 +306,29 @@ class ConstraintFwdblkhd(ConstraintModel):
                       'eclipse': False,
                       '4rt700t_0': T0s[0],
                       '4rt700t': T0s[0]}
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, **stateskw):
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintTcylaft6(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+        model_spec = os.path.join(pkg_dir, 'tcylaft6_spec_linear.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'tcylaft6', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'tcylaft6_0': T0s[0],
+                      'tcylaft6': T0s[0]}
 
         return init_comps
 
@@ -508,7 +531,7 @@ def merge_dwells1(constraints):
 def calc_constraints(start='2013:001',
                      n_sim=500,
                      dt=1000.,
-                     max_tephin=147.0,
+                     max_tephin=999.0,
                      max_tcylaft6=102.0,
                      max_1pdeaat=52.5,
                      max_1dpamzt=31.5,
@@ -522,7 +545,7 @@ def calc_constraints(start='2013:001',
                      max_pitch=169,
                      bin_pitch=2,
                      constraint_models=('minus_yz', 'psmc', 'pline', 'dpa', 'tank', 'aca',
-                      'fwdblkhd')):
+                      'fwdblkhd', 'tcylaft6')):
     """
     Calculate allowed dwell times coming out of perigee given a set of
     constraint models.
@@ -601,6 +624,12 @@ def calc_constraints(start='2013:001',
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,
                                                max_dwell_ksec=max_dwell_ksec)
+					       
+    if 'tcylaft6' in constraint_models:
+        constraints['tcylaft6'] = ConstraintTcylaft6(sim_inputs, 
+                                           limits={'tcylaft6': FtoC(max_tcylaft6)},
+                                           max_dwell_ksec=max_dwell_ksec)				       
+
 
     constraints_list = [constraints[x] for x in constraint_models]
     pitch_bins = np.arange(min_pitch, max_pitch, bin_pitch)
@@ -628,8 +657,8 @@ def calc_constraints2(constraints,
                       pitch_range=None,
                       hot_dwell_temp_ratio=0.9,
                       T_cool_ratio=0.9,
-                      constraint_models=('minus_yz', 'psmc', 'dpa', 'tank', 'aca', 'fwdblkhd'),
-                      msids=('tephin', 'tcylaft6', '1pdeaat', '1dpamzt', 'pftank2t', 'aacccdpt', '4rt700t')
+                      constraint_models=('minus_yz', 'psmc', 'dpa', 'tank', 'aca', 'fwdblkhd', 'tcylaft6'),
+                      msids=('tcylaft6', '1pdeaat', '1dpamzt', 'pftank2t', 'aacccdpt', '4rt700t')
                       ):
     """
     Calculate allowed dwell times coming out of perigee given a set of
