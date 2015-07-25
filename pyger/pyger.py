@@ -361,8 +361,9 @@ class ConstraintAca(ConstraintModel):
 
 
 class ConstraintPSMC(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, dh_heater=True):
         self.n_ccd = n_ccd
+        self.dh_heater = dh_heater
         model_spec = os.path.join(pkg_dir, 'psmc_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
         ConstraintModel.__init__(self, 'psmc', sim_inputs, limits,
@@ -376,7 +377,8 @@ class ConstraintPSMC(ConstraintModel):
         init_comps = {'sim_z': (states['simpos'], state_times),
                       'pin1at': T0s[0] - 10.5,
                       '1pdeaat': T0s[0],
-                      'dpa_power': 0.0}
+                      'dpa_power': 0.0,
+                      'dh_heater':self.dh_heater}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
@@ -539,6 +541,7 @@ def calc_constraints(start='2013:001',
                      max_aacccdpt=-15.0,
                      max_4rt700t=79.0,
                      n_ccd=6,
+                     dh_heater=True,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
@@ -598,7 +601,8 @@ def calc_constraints(start='2013:001',
         constraints['psmc'] = ConstraintPSMC(sim_inputs,
                                              limits={'1pdeaat': max_1pdeaat},
                                              max_dwell_ksec=max_dwell_ksec,
-                                             n_ccd=n_ccd)
+                                             n_ccd=n_ccd,
+                                             dh_heater=dh_heater)
     if 'dpa' in constraint_models:
         constraints['dpa'] = ConstraintDPA(sim_inputs,
                                            limits={'1dpamzt': max_1dpamzt},
@@ -652,6 +656,7 @@ def calc_constraints(start='2013:001',
 def calc_constraints2(constraints,
                       start='2013:001',
                       n_ccd=None,
+                      dh_heater=True,
                       max_dwell_ksec=400.,
                       pitch_num=50,
                       pitch_range=None,
