@@ -51,7 +51,7 @@ def run_pyger_cases(cases, savedwell1=False):
                                               constraint_models=models)
         if savedwell1:
             nccd = unicode(int(case['n_ccd_dwell1']))
-            filename = case['filename'] + '_' + nccd + '_DH-' + dh + '_ccd_dwell1.pkl'
+            filename = case['filename'] + '_dwell1.pkl'
             pyger.save_pyger_pickle(constraints1, filename)
             print('Saving to {0}'.format(case['filename'] + '_dwell1.pkl'))
 
@@ -68,7 +68,7 @@ def run_pyger_cases(cases, savedwell1=False):
                                                     dh_heater=dh_heater)
         
         nccd = unicode(int(case['n_ccd_dwell2']))
-        filename = case['filename'] + '_' + nccd + '_DH-' + dh + '_ccd_dwell2.pkl'
+        filename = case['filename'] + '_dwell2.pkl'
         pickle.dump((constraints2, coolstats, hotstats), open(filename,'w'), protocol=2)
         print('Saving to {0}'.format(filename))
 
@@ -110,7 +110,8 @@ class PostPyger(object):
             self.info[msid] = case['max_' + msid]
             if msid == '1dpamzt' or msid == '1pdeaat':
                 self.info['dwell1_ccds'] = case['n_ccd_dwell1']
-                self.info['dwell2_ccds'] = case['n_ccd_dwell2']                          
+                self.info['dwell2_ccds'] = case['n_ccd_dwell2']    
+                self.info['dh_heater'] = case['dh_heater']                      
             self.info['models'].append(case['constraint_model'])
      
 
