@@ -1,26 +1,4 @@
 {
-    "minus_z": {
-        "state_cols": [
-            "pitch"
-        ], 
-        "msids": [
-            "tcylaft6", 
-            "tcylfmzm", 
-            "tephin", 
-            "tfssbkt1", 
-            "tmzp_my"
-        ]
-    }, 
-    "minus_yz": {
-        "state_cols": [
-            "pitch"
-        ], 
-        "msids": [
-            "pmtank3t", 
-            "tephin", 
-            "tcylaft6"
-        ]
-    }, 
     "dpa": {
         "state_cols": [
             "pitch", 
@@ -66,14 +44,6 @@
             "aacccdpt" 
         ]
     }, 
-    "pline": {
-        "state_cols": [
-            "pitch"
-        ], 
-        "msids": [
-            "aosares1"
-        ]
-    }, 
     "psmc": {
         "state_cols": [
             "pitch", 
@@ -85,6 +55,19 @@
         ], 
         "msids": [
             "1pdeaat"
+        ]
+    }, 
+    "acisfp": {
+        "state_cols": [
+            "pitch", 
+            "ccd_count", 
+            "fep_count",
+            "clocking", 
+            "vid_board",
+            "simpos"
+        ], 
+        "msids": [
+            "fptemp_11"
         ]
     }
 }

@@ -100,7 +100,7 @@ def get_telemetry(start, stop, n_days, sim_stop_times, msids):
     """
 
     start_time = start.secs - 86400 * (n_days + 1)
-    stop_time = np.max((stop.secs, sim_stop_times[-1])) + 3600
+    stop_time = np.max((stop.secs, np.max(sim_stop_times))) + 3600
     dats = fetch.MSIDset(msids, start_time, stop_time, stat='5min')
     dats.interpolate()
 
@@ -173,9 +173,17 @@ def get_sim_data(start, stop, n_days, sim_start_times, sim_stop_times, model):
     for i, sim_start, sim_stop in zip(count(), sim_start_times, sim_stop_times):
         sim_states_mask = (states['tstop'] > sim_start) & (states['tstart'] < sim_stop)
 
-        # This currently assumes all fetched values are temperatures.
-        T0s = dict((x, dats[x].vals[start_ind_telem[i]] - 273.15) for x in msids)
-        T1s = dict((x, dats[x].vals[stop_ind_telem[i]] - 273.15) for x in msids)
+        try:
+            # This currently assumes all fetched values are temperatures.
+            T0s = dict((x, dats[x].vals[start_ind_telem[i]] - 273.15) for x in msids)
+            T1s = dict((x, dats[x].vals[stop_ind_telem[i]] - 273.15) for x in msids)
+        except:
+            import readline # optional, will allow Up/Down/History in the console
+            import code
+            vars = globals().copy()
+            vars.update(locals())
+            shell = code.InteractiveConsole(vars)
+            shell.interact()
 
         out_states = []
 

@@ -76,7 +76,7 @@ class ConstraintModel(object):
                   self.msids
         """
 
-        model = xija.ThermalModel(self.name, start=states['tstart'][0],
+        model = xija.XijaModel(self.name, start=states['tstart'][0],
                                   stop=states['tstop'][-1],
                                   model_spec=self.model_spec)
 
