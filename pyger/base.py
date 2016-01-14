@@ -309,7 +309,8 @@ class ConstraintModel(object):
 
 
     def calc_dwells2(self, msid, start, stop, times, pitch_num, hot_dwell_temp_ratio, 
-                     T_cool_ratio, pitch_range=None, match_cool_time=True, **statekw):
+                     T_cool_ratio, T_cool_temp=None, pitch_range=None, match_cool_time=True, 
+                     **statekw):
         """ Calculate model temperature at "non-hot" pitch ranges, starting at hot conditions
 
         :param msid: MSID for which to calculate cooling times
@@ -329,6 +330,8 @@ class ConstraintModel(object):
                              starting at the given hot conditions. A ratio of 0.9 means the MSID
                              has to have cooled back down 90% to the original hot dwell starting
                              temperature.
+        :param T_cool_temp: Temperature to which cooling time is always calculated; this overrides
+                            the T_cool_ratio method.
         :param pitch_range: Two element list or tuple defining target cooling pitch range. This
                             allows one to override the default cool pitch values.
         :param match_cool_time: Flag used to indicate whether or not the user wants to clip the
@@ -429,11 +432,15 @@ class ConstraintModel(object):
             return T_dwell2_0, t_dwell2
 
 
-        def calc_cooldown_times(self, i_hot, times, Ts_dwell2, msid_ind, T_cool_ratio):
+        def calc_cooldown_times(self, i_hot, times, Ts_dwell2, msid_ind, T_cool_ratio,
+                                T_cool_temp):
             times = times - times[0]
-            Ts_dwell1 = self.dwells1['Ts'][i_hot][msid_ind]
             Ts_dwell2 = Ts_dwell2[msid_ind]
-            T_threshold = Ts_dwell1[0] + (1 - T_cool_ratio) * (Ts_dwell1[-1] - Ts_dwell1[0])
+            if T_cool_temp:
+                T_threshold = T_cool_temp
+            else:
+                Ts_dwell1 = self.dwells1['Ts'][i_hot][msid_ind]
+                T_threshold = Ts_dwell1[0] + (1 - T_cool_ratio) * (Ts_dwell1[-1] - Ts_dwell1[0])
             t_interp = np.interp(T_threshold, Ts_dwell2[::-1], times[::-1])
             
             return t_interp, T_threshold
