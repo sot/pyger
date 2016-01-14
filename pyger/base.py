@@ -504,7 +504,7 @@ class ConstraintModel(object):
             for cool_pitch in dwell2_pitch_set:
                 states2 = self._get_states1(start, stop, cool_pitch, **statekw)
                 Ts = self._calc_model(states2, times, T_dwell2_0)
-                t_cool, T_cool = calc_cooldown_times(self, i_hot, times, Ts, msid_ind, T_cool_ratio)
+                t_cool, T_cool = calc_cooldown_times(self, i_hot, times, Ts, msid_ind, T_cool_ratio, T_cool_temp)
                 t_cool_set.append(t_cool)
 
             dwell1duration = self.dwells1['duration'][i_hot]
