@@ -37,6 +37,12 @@ def run_pyger_cases(cases, savedwell1=False):
                 dh_heater = False
                 dh = 'OFF'
 
+        coolpitchrange = None
+        if 'cool_pitch_min' in case.keys():
+            if 'none' not in case['cool_pitch_min'].lower():
+                coolpitchrange = (int(case['cool_pitch_min']), int(case['cool_pitch_max']))
+            
+
         constraints1 = pyger.calc_constraints(start=case['start'], 
                                               max_tcylaft6=float(case['max_tcylaft6']),
                                               max_1pdeaat=float(case['max_1pdeaat']),
@@ -63,6 +69,7 @@ def run_pyger_cases(cases, savedwell1=False):
                                                     pitch_num=int(case['dwell_2_pitch_num']),
                                                     hot_dwell_temp_ratio=1.0,
                                                     T_cool_ratio=0.9,
+                                                    pitch_range=coolpitchrange,
                                                     constraint_models=models,
                                                     msids=msids,
                                                     n_ccd=int(case['n_ccd_dwell2']),

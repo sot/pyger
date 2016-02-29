@@ -395,14 +395,19 @@ class ConstraintModel(object):
 
             else:
                 # If a pitch range is specified, then select only pitch values within this range
-                ind1 = np.flatnonzero(self.dwells1['pitch'] >= pitch_range[0])
-                ind2 = np.flatnonzero(self.dwells1['pitch'] <= pitch_range[1])
-                dwell2_pitch_ind_all = ind1 & ind2 & good_sim
+                ind1 = self.dwells1['pitch'] >= int(pitch_range[0])
+                ind2 = self.dwells1['pitch'] <= int(pitch_range[1])
+                dwell2_pitch_ind_all = np.where(ind1 & ind2 & good_sim)[0]
 
-            # Select N of these indices randomly, where N is specified by 'pitch_num' 
-            ind = np.random.randint(len(dwell2_pitch_ind_all), size=pitch_num)
+            # Select N of these indices randomly, where N is specified by 'pitch_num', if
+            # if pitch_num is less than the total number of possibilities.
+            if pitch_num < len(dwell2_pitch_ind_all): 
+                ind = np.random.randint(len(dwell2_pitch_ind_all), size=pitch_num)
+                return_ind = dwell2_pitch_ind_all[ind]
+            else:
+                return_ind = dwell2_pitch_ind_all
 
-            return dwell2_pitch_ind_all[ind]
+            return return_ind
 
 
         def calculate_init_data(self, msid_ind, i_hot, ratio):
