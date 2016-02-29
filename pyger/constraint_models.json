@@ -12,6 +12,19 @@
             "1dpamzt" 
         ]
     }, 
+    "dea": {
+        "state_cols": [
+            "pitch", 
+            "ccd_count", 
+            "fep_count", 
+            "clocking", 
+            "vid_board",
+            "simpos"
+        ], 
+        "msids": [
+            "1deamzt" 
+        ]
+    }, 
     "tank": {
         "state_cols": [
             "pitch" 

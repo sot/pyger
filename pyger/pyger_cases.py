@@ -47,6 +47,7 @@ def run_pyger_cases(cases, savedwell1=False):
                                               max_tcylaft6=float(case['max_tcylaft6']),
                                               max_1pdeaat=float(case['max_1pdeaat']),
                                               max_1dpamzt=float(case['max_1dpamzt']),
+                                              max_1deamzt=float(case['max_1deamzt']),
                                               max_pftank2t=float(case['max_pftank2t']),
                                               max_aacccdpt=float(case['max_aacccdpt']),
                                               max_4rt700t=float(case['max_4rt700t']),
@@ -116,7 +117,7 @@ class PostPyger(object):
         for case in self.cases:
             msid = case['msid'].lower()
             self.info[msid] = case['max_' + msid]
-            if msid == '1dpamzt' or msid == '1pdeaat':
+            if msid == '1dpamzt' or msid == '1pdeaat' or msid == '1deamzt':
                 self.info['dwell1_ccds'] = case['n_ccd_dwell1']
                 self.info['dwell2_ccds'] = case['n_ccd_dwell2']    
                 self.info['dh_heater'] = case['dh_heater']                      

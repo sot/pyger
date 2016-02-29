@@ -242,7 +242,46 @@ class ConstraintDPA(ConstraintModel):
         init_comps = {'sim_z': (states['simpos'], state_times),
                       'eclipse': False,
                       '1dpamzt': T0s[0],
-                      'dpa_power': 0.0}
+                      'dpa_power': 0.0, 
+                      'roll': 0.0}
+
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+            init_comps[name] = (states[name], state_times)
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
+                     clocking=1, simpos=75000, **stateskw):
+
+        if ccd_count is None:
+            ccd_count = self.n_ccd
+
+        if fep_count is None:
+            fep_count = ccd_count
+
+        states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
+                   pitch1, simpos)]
+        names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
+                 'clocking', 'pitch', 'simpos')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintDEA(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+        self.n_ccd = n_ccd
+        model_spec = os.path.join(pkg_dir, 'dea_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'dea', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'sim_z': (states['simpos'], state_times),
+                      'eclipse': False,
+                      '1deamzt': T0s[0],
+                      'dpa_power': 0.0, 
+                      'roll': 0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
@@ -471,8 +510,8 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     dwell1_stats = constraint.dwell1_stats
     plt.figure(figure, figsize=(6, 4))
     plt.clf()
-    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline',
-             '1dpamzt', 'pftank2t', 'aacccdpt')
+    names = ('none', '1pdeaat', 'tcylaft6', '4rt700t',
+             '1dpamzt', '1deamzt', 'pftank2t', 'aacccdpt')
     colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y', 'g')
     for name, color in zip(names, colors):
         ok = dwells1['constraint_name'] == name
@@ -588,6 +627,7 @@ def calc_constraints(start='2013:001',
                      max_tcylaft6=999.0,
                      max_1pdeaat=999.0,
                      max_1dpamzt=999.0,
+                     max_1deamzt=999.0,
                      max_pftank2t=999.0,
                      max_aacccdpt=999.0,
                      max_4rt700t=999.0,
@@ -599,7 +639,7 @@ def calc_constraints(start='2013:001',
                      min_pitch=45,
                      max_pitch=169,
                      bin_pitch=2,
-                     constraint_models=('minus_yz', 'psmc', 'pline', 'dpa', 'tank', 'aca',
+                     constraint_models=('psmc', 'pline', 'dpa', 'dea', 'tank', 'aca',
                       'fwdblkhd', 'tcylaft6', 'acisfp')):
     """
     Calculate allowed dwell times coming out of perigee given a set of
@@ -612,6 +652,7 @@ def calc_constraints(start='2013:001',
     :param max_tcylaft6: TCYLAFT6 planning
     :param max_1pdeaat: 1PDEAAT planning limit
     :param max_1dpamzt: 1DPAMZT planning limit
+    :param max_1deamzt: 1DEAMZT planning limit
     :param max_pftank2t: PFTANK2T planning limit
     :param max_aacccdpt: ACA CCD planning limit
     :param max_4rt700t: OBA forward bulkhead planning limit
@@ -622,7 +663,8 @@ def calc_constraints(start='2013:001',
     :param min_pitch: minimum pitch in simulations (default=45)
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
-    :param constraint_models: constraint models, default=('minus_yz', 'psmc', 'pline', 'dpa', 'tank')
+    :param constraint_models: constraint models, default=('psmc', 'pline', 'dpa', 
+        'dea', 'tank')
 
     :returns: dict of computed constraint model objects
     """
@@ -659,6 +701,11 @@ def calc_constraints(start='2013:001',
     if 'dpa' in constraint_models:
         constraints['dpa'] = ConstraintDPA(sim_inputs,
                                            limits={'1dpamzt': max_1dpamzt},
+                                           max_dwell_ksec=max_dwell_ksec,
+                                           n_ccd=n_ccd)
+    if 'dea' in constraint_models:
+        constraints['dea'] = ConstraintDEA(sim_inputs,
+                                           limits={'1deamzt': max_1deamzt},
                                            max_dwell_ksec=max_dwell_ksec,
                                            n_ccd=n_ccd)
     if 'tank' in constraint_models:
@@ -722,8 +769,10 @@ def calc_constraints2(constraints,
                       pitch_range=None,
                       hot_dwell_temp_ratio=0.9,
                       T_cool_ratio=0.9,
-                      constraint_models=('minus_yz', 'psmc', 'dpa', 'tank', 'aca', 'fwdblkhd', 'tcylaft6', 'acisfp'),
-                      msids=('tcylaft6', '1pdeaat', '1dpamzt', 'pftank2t', 'aacccdpt', '4rt700t', 'acisfp_11')
+                      constraint_models=('psmc', 'dpa', 'dea', 'tank', 'aca', 'fwdblkhd',
+                        'tcylaft6', 'acisfp'),
+                      msids=('tcylaft6', '1pdeaat', '1dpamzt', '1deamzt', 'pftank2t',
+                        'aacccdpt', '4rt700t', 'acisfp_11')
                       ):
     """
     Calculate allowed dwell times coming out of perigee given a set of
