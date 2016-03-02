@@ -59,7 +59,7 @@ def plot_cooldown(constraints2, coolstats, hotstats, model, msid, limit, filenam
         ax.plot(coolpitch, coolperc90, label='90 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
 
         ax.plot(hotstats.pitch, hotstats.dwell1_duration,
-                linewidth=2, color=[0.4, 0.4, 0.4], label='Max Dwell Time')
+                linewidth=4, color=[0.4, 0.4, 0.4], label='Max Dwell Time')
 
         dwell1pitch = constraints2.dwell1_pitch
         #duration = constraints2.dwell1_duration
@@ -71,7 +71,8 @@ def plot_cooldown(constraints2, coolstats, hotstats, model, msid, limit, filenam
 
         # Annotate and format the plot
         ax.legend(loc='best', fontsize=20, framealpha=0.5)
-        ylim = ax.get_ylim()
+        # ylim = ax.get_ylim()
+        ylim = ax.set_ylim(0, 400000)
         yticks = np.arange(ylim[0], ylim[1] + 1, 50000)
         ax.set_yticks(yticks)
         ax.set_yticklabels(yticks/1000., fontsize=20)
@@ -88,10 +89,15 @@ def plot_cooldown(constraints2, coolstats, hotstats, model, msid, limit, filenam
     else:
         ax.text(0.5, 0.5, 'Condition Not Limiting', ha='center', va='center', fontsize = 30)
 
+
+    if len(additional_title_text) > 1:
+        titlefontsize = 22
+    else:
+        titlefontsize = 26
     ax.set_title('{0}: Date:{1}, Limit={2}{3}'.format(msid.upper(),
                                                       DateTime(constraints2[0].dwell1_start).date[:8],
                                                       str(float(limit)),
-                                                      additional_title_text), fontsize=26)
+                                                      additional_title_text), fontsize=titlefontsize)
 
     # Save plot to file
     if save_to_file:
@@ -112,14 +118,15 @@ def plotset(cases):
         else:
             dh = 'OFF'
         n_ccd_dwell1 = cases[n]['n_ccd_dwell1']
+        n_ccd_dwell2 = cases[n]['n_ccd_dwell2']
         constraints2 = constraints2[msid]
         picfile = cases[n]['filename'] + '.png'
 
         coolstats = coolstats[msid]
         hotstats = hotstats[msid]
 
-        if ('psmc' in model.lower()) or ('dpa' in model.lower()):
-            additionaltitletext = ', {}CCDs, DH={}'.format(n_ccd_dwell1, dh)
+        if ('psmc' in model.lower()) or ('dpa' in model.lower()) or ('dea' in model.lower()):
+            additionaltitletext = ', {}CCDs Hot, {}CCDs Cool, DH={}'.format(n_ccd_dwell1, n_ccd_dwell2, dh)
         else:
             additionaltitletext = ''
 
@@ -130,12 +137,6 @@ def plotset(cases):
 
 
 if __name__ == "__main__":
-
-    cases = pyger.read_cases('cases_2015_001_090.csv')
-    plotset(cases)
-
-    cases = pyger.read_cases('cases_2015_182_274.csv')
-    plotset(cases)
 
     cases = pyger.read_cases('cases_2016_001_090.csv')
     plotset(cases)
