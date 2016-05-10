@@ -67,12 +67,12 @@ def plot_constraints(constraints):
             # is only an issue because None is
             if name:
                 ok = dwells1['constraint_name'] == name
-                ax.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.',
+                ax.plot(dwells1['pitch'][ok], dwells1['duration'][ok] / 1000., '.',
                         markersize=3, label=name)
 
         # If name is None, then it is the 'pline' model, plot all points.
         if not name:
-            ax.plot(dwells1['pitch'], dwells1['dur'] / 1000., '.',
+            ax.plot(dwells1['pitch'], dwells1['duration'] / 1000., '.',
                     markersize=3, label='all')
 
         ax.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')

@@ -1,61 +1,54 @@
-:mod:`pyger`
-==================
+pyger package
+=============
 
-.. automodule:: pyger
-
-
-Functions
+Submodules
 ----------
 
-.. autofunction:: calc_constraints
+pyger.base module
+-----------------
 
-.. autofunction:: plot_dwells1
+.. automodule:: pyger.base
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
-.. autofunction:: make_sim_inputs
+pyger.clogging module
+---------------------
+
+.. automodule:: pyger.clogging
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pyger.make_sim_inputs module
+----------------------------
+
+.. automodule:: pyger.make_sim_inputs
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pyger.pyger module
+------------------
+
+.. automodule:: pyger.pyger
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pyger.pyger_cases module
+------------------------
+
+.. automodule:: pyger.pyger_cases
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 
-Classes
---------
+Module contents
+---------------
 
-.. autoclass:: ConstraintModel
-   :show-inheritance:
-   :members:
-   :inherited-members:
-   :undoc-members:
-
-.. autoclass:: ConstraintDPA
-   :show-inheritance:
-   :members:
-   :inherited-members:
-   :undoc-members:
-
-.. autoclass:: ConstraintMinusYZ
-   :show-inheritance:
-   :members:
-   :inherited-members:
-   :undoc-members:
-
-.. autoclass:: ConstraintMinusZ
-   :show-inheritance:
-   :members:
-   :inherited-members:
-   :undoc-members:
-
-.. autoclass:: ConstraintPSMC
-   :show-inheritance:
-   :members:
-   :inherited-members:
-   :undoc-members:
-
-.. autoclass:: ConstraintPline
-   :show-inheritance:
-   :members:
-   :inherited-members:
-   :undoc-members:
-
-.. autoclass:: ConstraintTank
-   :show-inheritance:
-   :members:
-   :inherited-members:
-   :undoc-members:
-
+.. automodule:: pyger
+    :members:
+    :undoc-members:
+    :show-inheritance:

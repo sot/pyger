@@ -12,18 +12,17 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-import Ska.Numpy
+# import Ska.Numpy
 from Chandra.Time import DateTime
 import asciitable
-
 import xija
 
 from . import clogging
+from .base import ConstraintModel, pkg_dir, constraint_models, logger
+from .pyger_cases import read_cases, run_pyger_cases, PostPyger
 
-pkg_dir = os.path.dirname(os.path.abspath(__file__))
-constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
+# pkg_dir = os.path.dirname(os.path.abspath(__file__))
 __version__ = open(os.path.join(pkg_dir, 'VERSION')).read().strip()
-logger = clogging.config_logger('pyger')
 
 
 def CtoF(cs):
@@ -40,105 +39,60 @@ def FtoC(cs):
         return (cs - 32) / 1.8
 
 
-class ConstraintModel(object):
-    def __init__(self, name, sim_inputs, limits, max_dwell_ksec):
-        self.name = name
-        self.sim_inputs = sim_inputs.get(name)
-        self.limits = limits
-        if name in constraint_models:
-            self.msids = constraint_models[name]['msids']
-            self.state_cols = constraint_models[name]['state_cols']
-        self.max_dwell_ksec = max_dwell_ksec
-
-    @property
-    def n_sim(self):
-        try:
-            return len(self.dwells1)
-        except AttributeError:
-            return None
-
-    def calc_dwell1_T0s(self, start):
-        """Calculate the starting temperature vectors for the ensemble of pitch
-        profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
-        values."""
-
-        logger.info('{0}: calculating start temps for {1} dwells'.format(
-            self.name.upper(), len(self.sim_inputs)))
-        for sim_input in self.sim_inputs:
-            states = sim_input['states']
-            state_cols = states[0].keys()
-            time_adj = start.secs - states[-1]['tstop']
-            for state in states:
-                state['tstart'] += time_adj
-                state['tstop'] += time_adj
-
-            np_states = np.rec.fromrecords([[state[col] for col in state_cols] for state in states],
-                                           names=state_cols)
-
-            times = np.array([sim_input['tstop'] + time_adj - 1])
-            T0s = np.array([sim_input['T0s'][x] for x in self.msids])
-            Ts = self.calc_model(np_states, times, T0s, state_only=True)
-
-            sim_input['dwell1_T0s'] = Ts[:, -1]
-
-    def calc_dwells1(self, start, stop, times, pitches1, i_sims):
-        self.start = start
-        self.calc_dwell1_T0s(start)
-        sim_inputs = self.sim_inputs
-        dwells1 = []
-
-        logger.info('{0}: simulating {1} dwells'.format(self.name.upper(), len(i_sims)))
-        for i_sim, pitch1 in zip(i_sims, pitches1):
-            sim_input = sim_inputs[i_sim]
-            states1 = self.get_states1(start, stop, pitch1)
-            Ts = self.calc_model(states1, times, sim_input['dwell1_T0s'])
-
-            bad_idx = None
-            constraint_name = 'none'
-            for j, msid in enumerate(self.msids):
-                if msid in self.limits:
-                    bad_idxs = np.flatnonzero(Ts[j, :] >= self.limits[msid])
-                    if len(bad_idxs) > 0 and (bad_idx is None or bad_idxs[0] < bad_idx):
-                        bad_idx = bad_idxs[0]
-                        constraint_name = msid
-
-            ok_idx = -1 if (bad_idx is None) else max(bad_idx - 1, 0)
-            dwell_dur = times[ok_idx] - times[0]
-            dwells1.append((dwell_dur, pitch1, constraint_name, Ts[:, ok_idx]))
-
-        self.dwells1 = np.rec.fromrecords(dwells1,
-                                          dtype=[('dur', np.float64),
-                                                 ('pitch', np.float64),
-                                                 ('constraint_name', '|S10'),
-                                                 ('T1', np.float64, (len(self.msids),))
-                                                 ])
-
-    def calc_dwell1_stats(self, pitch_bins):
-        dwells1 = self.dwells1
-        dwell1_stats = []
-        for p0, p1 in zip(pitch_bins[:-1], pitch_bins[1:]):
-            ok = (dwells1['pitch'] >= p0) & (dwells1['pitch'] < p1)
-            dwells_ok = dwells1[ok]
-            dwells_ok.sort(order='dur')
-            n_dwells_ok = len(dwells_ok)
-            dwell50 = dwells_ok[int(n_dwells_ok * 0.5)]
-            dwell90 = dwells_ok[int(n_dwells_ok * 0.9)]
-            dwell1_stats.append((p0, p1, (p0 + p1) / 2,
-                                 dwell50['dur'], dwell90['dur'],
-                                 ))
-        self.dwell1_stats = np.rec.fromrecords(dwell1_stats,
-                                               dtype=[('pitch_bin0', np.float64),
-                                                      ('pitch_bin1', np.float64),
-                                                      ('pitch', np.float64),
-                                                      ('dur50', np.float64),
-                                                      ('dur90', np.float64),
-                                                      ])
-
-
 def hour_min_to_sec(hm):
     """Convert string in format hh:mm to seconds"""
     h, m = re.match(r'(\d{1,2}):(\d{2})', hm).groups()
     return 3600 * (int(h) + float(m) / 60.)
+
+
+def save_pyger_pickle(constraints, filename):
+    """ Save pyger data to pickle file
+
+    :param constraints: This can be either the output from calc_constraints() or a
+                        numpy.core.records.recarray object, which is output by calc_constraints2()
+    :param filename: Name of pickle file to write data to
+
+    """
+    pickleable = ['dwell1_stats', 'dwells1', 'times', 'limits', 'max_dwell_ksec', 'model_spec', 
+                  'msids', 'name', 'n_ccd', 'n_sim', 'sim_inputs', 'start', 'state_col']
+
+    all_pickle_data = {}
+    for name in constraints:
+        pickle_data = {}
+        if isinstance(constraints[name], np.core.records.recarray):
+            all_pickle_data.update({name:constraints[name]})
+        else:
+            for key in constraints[name].__dict__.keys():
+                if key in pickleable:
+                    if key == 'start':
+                        pickle_data.update({key:constraints[name].__dict__[key].secs})
+                    else:
+                        pickle_data.update({key:constraints[name].__dict__[key]})
+            all_pickle_data.update({name:pickle_data})
+    pickle.dump(all_pickle_data, open(filename,'w'), protocol=2)
+
+
+def load_pyger_pickle(filename):
+    """ Load pyger data from pickle file back into object compatible with pyger plotting methods
+
+    :param filename: File name of pickled output from calc_constraints()
+
+    This is only meant to be used to read in the initial constraints object produced by
+    calc_constraints(), not the cooldown data produced by calc_constraints2(). The data prduced
+    by calc_constraints2() should be able to be read in with a simple pickle.load() function.
+    """
+    class saved_pyger_data(object):
+        def __init__(self, pickled_constraint):
+            for key in pickled_constraint:
+                self.__dict__.update({key:pickled_constraint[key]})
+
+    rawdata = pickle.load(open(filename,'r'))
+    pyger_compatible_data = {}
+    for name in rawdata.keys():
+        constraint = saved_pyger_data(rawdata[name])
+        pyger_compatible_data.update({name:constraint})
+
+    return pyger_compatible_data
 
 
 class ConstraintPline(ConstraintModel):
@@ -182,7 +136,7 @@ class ConstraintPline(ConstraintModel):
             dwells1.append((dwell_dur, pitch1, constraint_name, [warm_dwell, warm_pitch_max]))
 
         self.dwells1 = np.rec.fromrecords(dwells1,
-                                          dtype=[('dur', np.float64),
+                                          dtype=[('duration', np.float64),
                                                  ('pitch', np.float64),
                                                  ('constraint_name', '|S10'),
                                                  ('T1', np.float64, (2,))
@@ -227,37 +181,21 @@ class ConstraintMinusZ(ConstraintModel):
         ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False):
-        model = xija.ThermalModel('minus_z', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
+    def _get_init_comps(self, T0s, states):
+        # Initialize all
 
         state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['pitch'].set_data(states['pitch'], state_times)
-        model.comp['eclipse'].set_data(False)
-        model.comp['tcylaft6'].set_data(T0s[0])
-        model.comp['tcylfmzm'].set_data(T0s[1])
-        model.comp['tephin'].set_data(T0s[2])
-        model.comp['tfssbkt1'].set_data(T0s[3])
-        model.comp['tmzp_my'].set_data(T0s[4])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'tcylaft6': T0s[0],
+                      'tcylfmzm': T0s[1],
+                      'tephin': T0s[2],
+                      'tfssbkt1': T0s[3],
+                      'tmzp_my': T0s[4]}
 
-        model.make()
-        model.calc()
+        return init_comps
 
-        T_tcylaft6 = Ska.Numpy.interpolate(model.comp['tcylaft6'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-        T_tcylfmzm = Ska.Numpy.interpolate(model.comp['tcylfmzm'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-        T_tephin = Ska.Numpy.interpolate(model.comp['tephin'].mvals,
-                                         xin=model.times, xout=times, sorted=True)
-        T_tfssbkt1 = Ska.Numpy.interpolate(model.comp['tfssbkt1'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-        T_tmzp_my = Ska.Numpy.interpolate(model.comp['tmzp_my'].mvals,
-                                          xin=model.times, xout=times, sorted=True)
-
-        return np.vstack([T_tcylaft6, T_tcylfmzm, T_tephin, T_tfssbkt1, T_tmzp_my])
-
-    def get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1, **stateskw):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
@@ -270,36 +208,21 @@ class ConstraintMinusYZ(ConstraintModel):
         ConstraintModel.__init__(self, 'minus_yz', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False):
-        model = xija.ThermalModel('minus_yz', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
+    def _get_init_comps(self, T0s, states):
 
         state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['pitch'].set_data(states['pitch'], state_times)
-        model.comp['eclipse'].set_data(False)
-        model.comp['pmtank3t'].set_data(T0s[0])
-        model.comp['tmzp_my'].set_data(T0s[1])
-        model.comp['tephin'].set_data(T0s[2])
-        model.comp['tcylaft6'].set_data(T0s[3])
-        model.comp['pseudo_0'].set_data(T0s[3] - 4)
-        model.comp['pseudo_1'].set_data(T0s[0])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'pmtank3t': T0s[0],
+                      'tephin': T0s[1],
+                      'tcylaft6': T0s[2],
+                      'tcylaft6_0': T0s[2] - 4.0,
+                      'pmtank3t_0': T0s[0],
+                      'tephin_0': T0s[1]}
 
-        model.make()
-        model.calc()
+        return init_comps
 
-        T_pmtank3t = Ska.Numpy.interpolate(model.comp['pmtank3t'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-        T_tmzp_my = Ska.Numpy.interpolate(model.comp['tmzp_my'].mvals,
-                                          xin=model.times, xout=times, sorted=True)
-        T_tephin = Ska.Numpy.interpolate(model.comp['tephin'].mvals,
-                                         xin=model.times, xout=times, sorted=True)
-        T_tcylaft6 = Ska.Numpy.interpolate(model.comp['tcylaft6'].mvals,
-                                           xin=model.times, xout=times, sorted=True)
-
-        return np.vstack([T_pmtank3t, T_tmzp_my, T_tephin, T_tcylaft6])
-
-    def get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1, **stateskw):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
@@ -313,30 +236,69 @@ class ConstraintDPA(ConstraintModel):
         ConstraintModel.__init__(self, 'dpa', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False, cache=True):
-        model = xija.ThermalModel('dpa', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
+    def _get_init_comps(self, T0s, states):
 
         state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['sim_z'].set_data(states['simpos'], state_times)
-        model.comp['eclipse'].set_data(False)
-        model.comp['1dpamzt'].set_data(T0s[0])
-        model.comp['dpa_power'].set_data(0.0)
+        init_comps = {'sim_z': (states['simpos'], state_times),
+                      'eclipse': False,
+                      '1dpamzt': T0s[0],
+                      'dpa_power': 0.0, 
+                      'roll': 0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
-            model.comp[name].set_data(states[name], state_times)
+            init_comps[name] = (states[name], state_times)
 
-        model.make()
-        model.calc()
-        T_dpa = Ska.Numpy.interpolate(model.comp['1dpamzt'].mvals,
-                                      xin=model.times, xout=times, sorted=True)
+        return init_comps
 
-        return np.vstack([T_dpa])
+    def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
+                     clocking=1, simpos=75000, **stateskw):
 
-    def get_states1(self, start, stop, pitch1):
-        states = [(start.secs, stop.secs, self.n_ccd, self.n_ccd, 1, 1,
-                   pitch1, 75000)]
+        if ccd_count is None:
+            ccd_count = self.n_ccd
+
+        if fep_count is None:
+            fep_count = ccd_count
+
+        states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
+                   pitch1, simpos)]
+        names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
+                 'clocking', 'pitch', 'simpos')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintDEA(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+        self.n_ccd = n_ccd
+        model_spec = os.path.join(pkg_dir, 'dea_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'dea', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'sim_z': (states['simpos'], state_times),
+                      'eclipse': False,
+                      '1deamzt': T0s[0],
+                      'dpa_power': 0.0, 
+                      'roll': 0.0}
+
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+            init_comps[name] = (states[name], state_times)
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
+                     clocking=1, simpos=75000, **stateskw):
+
+        if ccd_count is None:
+            ccd_count = self.n_ccd
+
+        if fep_count is None:
+            fep_count = ccd_count
+
+        states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
+                   pitch1, simpos)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
                  'clocking', 'pitch', 'simpos')
         return np.rec.fromrecords(states, names=names)
@@ -349,68 +311,184 @@ class ConstraintTank(ConstraintModel):
         ConstraintModel.__init__(self, 'tank', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False):
-        model = xija.ThermalModel('tank', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
+    def _get_init_comps(self, T0s, states):
 
-        state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['pitch'].set_data(states['pitch'], state_times)
-        model.comp['eclipse'].set_data(False)
         # Empirical formula from settling values for pf0tank2t and pftank2t.
         # The two values converge at 22 C (pitch > 140), while at pitch = 120
         # pftank2t = 39 and pf0tank2t = 36.
-        model.comp['pf0tank2t'].set_data(22 + 14. / 17. * (T0s[0] - 22.0))
-        model.comp['pftank2t'].set_data(T0s[0])
 
-        model.make()
-        model.calc()
-        T_tank = Ska.Numpy.interpolate(model.comp['pftank2t'].mvals,
-                                       xin=model.times, xout=times, sorted=True)
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'pf0tank2t': 22 + 14. / 17. * (T0s[0] - 22.0),
+                      'pftank2t': T0s[0]}
 
-        return np.vstack([T_tank])
+        return init_comps
 
-    def get_states1(self, start, stop, pitch1):
+    def _get_states1(self, start, stop, pitch1, **stateskw):
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintFwdblkhd(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+        model_spec = os.path.join(pkg_dir, '4rt700t_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'fwdblkhd', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      '4rt700t_0': T0s[0],
+                      '4rt700t': T0s[0]}
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, **stateskw):
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintTcylaft6(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+        model_spec = os.path.join(pkg_dir, 'tcylaft6_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'tcylaft6', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'tcylaft6_0': T0s[0],
+                      'tcylaft6': T0s[0]}
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, **stateskw):
+        states = [(start.secs, stop.secs, pitch1)]
+        names = ('tstart', 'tstop', 'pitch')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintAca(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+        model_spec = os.path.join(pkg_dir, 'aca_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'aca', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'eclipse': False,
+                      'aca0': T0s[0],
+                      'aacccdpt': T0s[0]}
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, **stateskw):
         states = [(start.secs, stop.secs, pitch1)]
         names = ('tstart', 'tstop', 'pitch')
         return np.rec.fromrecords(states, names=names)
 
 
 class ConstraintPSMC(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, dh_heater=True):
         self.n_ccd = n_ccd
+        self.dh_heater = dh_heater
         model_spec = os.path.join(pkg_dir, 'psmc_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
         ConstraintModel.__init__(self, 'psmc', sim_inputs, limits,
                                  max_dwell_ksec)
 
-    def calc_model(self, states, times, T0s, state_only=False, cache=True):
-        model = xija.ThermalModel('psmc', start=states['tstart'][0],
-                                  stop=states['tstop'][-1],
-                                  model_spec=self.model_spec)
+    def _get_init_comps(self, T0s, states):
+
+        # pin1at ~ 1pdeaat - 10.5 C
 
         state_times = np.array([states['tstart'], states['tstop']])
-        model.comp['sim_z'].set_data(states['simpos'], state_times)
-        model.comp['pin1at'].set_data(T0s[0] - 10.5)  # pin1at ~ 1pdeaat - 10.5 C
-        model.comp['1pdeaat'].set_data(T0s[0])
-        model.comp['dpa_power'].set_data(0)
+        init_comps = {'sim_z': (states['simpos'], state_times),
+                      'pin1at': T0s[0] - 10.5,
+                      '1pdeaat': T0s[0],
+                      'dpa_power': 0.0,
+                      'dh_heater':self.dh_heater}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
-            model.comp[name].set_data(states[name], state_times)
+            init_comps[name] = (states[name], state_times)
 
-        model.make()
-        model.calc()
-        T_psmc = Ska.Numpy.interpolate(model.comp['1pdeaat'].mvals,
-                                       xin=model.times, xout=times, sorted=True)
+        return init_comps
 
-        return np.vstack([T_psmc])
+    def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
+                     clocking=1, simpos=75000, **stateskw):
 
-    def get_states1(self, start, stop, pitch1):
-        states = [(start.secs, stop.secs, self.n_ccd, self.n_ccd, 1, 1,
-                   pitch1, 75000)]
+        if ccd_count is None:
+            ccd_count = self.n_ccd
+
+        if fep_count is None:
+            fep_count = ccd_count
+
+        states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
+                   pitch1, simpos)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
                  'clocking', 'pitch', 'simpos')
         return np.rec.fromrecords(states, names=names)
+
+
+
+
+class ConstraintACISFP(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, dh_heater=True):
+        self.n_ccd = n_ccd
+        self.dh_heater = dh_heater
+        model_spec = os.path.join(pkg_dir, 'acisfp_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        ConstraintModel.__init__(self, 'acisfp', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'sim_z': (states['simpos'], state_times),
+                      'eclipse': False,
+                      'fptemp_11': T0s[0],
+                      '1cbat':-55.0,
+                      'sim_px':-110.0,
+                      'dpa_power': 0.0,
+                      'orbitephem0_x': 25000e3,
+                      'orbitephem0_y': 25000e3,
+                      'orbitephem0_z': 25000e3,
+                      'aoattqt1': 0.0,
+                      'aoattqt2': 0.0,
+                      'aoattqt3': 0.0,
+                      'aoattqt4': 1.0,
+                      'dh_heater':self.dh_heater}
+
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+            init_comps[name] = (states[name], state_times)
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
+                     clocking=1, simpos=75000, **stateskw):
+
+        if ccd_count is None:
+            ccd_count = self.n_ccd
+
+        if fep_count is None:
+            fep_count = ccd_count
+
+        states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
+                   pitch1, simpos)]
+        names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
+                 'clocking', 'pitch', 'simpos')
+        return np.rec.fromrecords(states, names=names)
+
 
 
 def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
@@ -432,12 +510,12 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
     dwell1_stats = constraint.dwell1_stats
     plt.figure(figure, figsize=(6, 4))
     plt.clf()
-    names = ('none', '1pdeaat', 'tcylaft6', 'tephin', 'pline',
-             '1dpamzt', 'pftank2t')
-    colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y')
+    names = ('none', '1pdeaat', 'tcylaft6', '4rt700t',
+             '1dpamzt', '1deamzt', 'pftank2t', 'aacccdpt')
+    colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y', 'g')
     for name, color in zip(names, colors):
         ok = dwells1['constraint_name'] == name
-        plt.plot(dwells1['pitch'][ok], dwells1['dur'][ok] / 1000., '.' + color,
+        plt.plot(dwells1['pitch'][ok], dwells1['duration'][ok] / 1000., '.' + color,
                  markersize=3, label=name, mec=color)
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')
     plt.plot(dwell1_stats['pitch'], dwell1_stats['dur90'] / 1000., '-m')
@@ -453,37 +531,116 @@ def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
         plt.savefig(plot_file)
 
 
+def plot_cooldown(constraints2, coolstats, hotstats, model, msid, limit, filename, 
+                  save_to_file=True, additional_title_text=None):
+    colorpalate = ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"]
+    lightblue = "#81CCf4"
+
+    if additional_title_text is None:
+        additional_title_text = ''
+
+    # Create plot framework
+    fig = plt.figure(figsize=[14,8], facecolor='w')
+    rect = [0.06, 0.1, 0.88, 0.8]
+    ax = fig.add_axes(rect)
+
+
+    if len(np.array(hotstats).flatten()) > 0:
+
+        # fill in NaNs in cool stats for hot regions, sort by pitch
+        nans = np.array([np.nan] * len(hotstats.pitch))
+        coolpitch = np.concatenate((coolstats.pitch, hotstats.pitch), axis=0)
+        coolperc10 = np.concatenate((coolstats.perc10, nans), axis=0)
+        coolperc50 = np.concatenate((coolstats.perc50, nans), axis=0)
+        coolperc90 = np.concatenate((coolstats.perc90, nans), axis=0)
+        ind = coolpitch.argsort()
+        coolpitch = coolpitch[ind]
+        coolperc10 = coolperc10[ind]
+        coolperc50 = coolperc50[ind]
+        coolperc90 = coolperc90[ind]
+        
+
+        # Plot data
+        ax.plot(constraints2.dwell2_pitch_set, constraints2.dwell2_times, '.', 
+                color=lightblue, alpha=0.1)
+        ax.fill_between(coolpitch, coolperc10, coolperc90, facecolor=colorpalate[1], alpha=0.5)
+        ax.plot(coolpitch, coolperc50, label='50 Perc Cooldown Time', linewidth=3, color=colorpalate[1])
+        ax.plot(coolpitch, coolperc10, label='10 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
+        ax.plot(coolpitch, coolperc90, label='90 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
+
+        ax.plot(hotstats.pitch, hotstats.dwell1_duration,
+                linewidth=2, color=[0.4, 0.4, 0.4], label='Max Dwell Time')
+
+        dwell1pitch = constraints2.dwell1_pitch
+        #duration = constraints2.dwell1_duration
+        duration_delta = constraints2.dwell1_duration_delta
+
+        ax.plot(dwell1pitch, duration_delta, '.', color=colorpalate[0], alpha=0.4)
+        ax.plot(hotstats.pitch, hotstats.dwell1_duration_delta, color=colorpalate[0], label='Heatup Time From Tcooled to Limit', linewidth=3)
+        ax.fill_between(hotstats.pitch, 0, hotstats.dwell1_duration_delta, facecolor=colorpalate[0], alpha=0.2)
+
+        # Annotate and format the plot
+        ax.legend(loc='best')
+        ylim = ax.get_ylim()
+        yticks = np.arange(ylim[0], ylim[1] + 1, 25000)
+        ax.set_yticks(yticks)
+        ax.set_yticklabels(yticks/1000.)
+        ax.set_ylim(ylim)
+        ax.set_xticks(range(45,175,5))
+        ax.set_xlim(45, 170)
+        ax.grid()
+        ax.set_ylabel('Dwell Time in Kiloseconds')
+        ax.set_xlabel('Pitch')
+    else:
+        ax.text(0.5, 0.5, 'Condition Not Limiting', ha='center', va='center', fontsize = 16)
+
+    ax.set_title('{0}: Date:{1}, Limit={2}{3}'.format(msid.upper(),
+                                                      DateTime(constraints2[0].dwell1_start).date[:8],
+                                                      str(float(limit)),
+                                                      additional_title_text))
+
+    # Save plot to file
+    if save_to_file:
+        fig.savefig(filename)
+
+
 def merge_dwells1(constraints):
     """Merge the dwells in the ``constraints`` list, finding the shortest from among the
     constraints.
 
     :param constraints: list of ModelConstraint objects
-    :returns: NumPy recarray of dwells with pitch, dur, constraint_name columns
+    :returns: NumPy recarray of dwells with pitch, duration, constraint_name columns
     """
     dwells1 = []
     for i in range(constraints[0].n_sim):
-        constraint = min(constraints, key=lambda x: x.dwells1['dur'][i])
-        dwells1.append(tuple(constraint.dwells1[x][i] for x in ('pitch', 'dur', 'constraint_name')))
-    dwells1 = np.rec.fromrecords(dwells1, names=('pitch', 'dur', 'constraint_name'))
+        constraint = min(constraints, key=lambda x: x.dwells1['duration'][i])
+        dwells1.append(tuple(constraint.dwells1[x][
+                       i] for x in ('pitch', 'duration', 'constraint_name')))
+    dwells1 = np.rec.fromrecords(dwells1, names=('pitch', 'duration', 'constraint_name'))
     return dwells1
 
 
 def calc_constraints(start='2013:001',
                      n_sim=500,
                      dt=1000.,
-                     max_tephin=147.0,
-                     max_tcylaft6=102.0,
-                     max_1pdeaat=52.5,
-                     max_1dpamzt=32.5,
-                     max_pftank2t=93.0,
-                     n_ccd=5,
+                     max_tephin=999.0,
+                     max_tcylaft6=999.0,
+                     max_1pdeaat=999.0,
+                     max_1dpamzt=999.0,
+                     max_1deamzt=999.0,
+                     max_pftank2t=999.0,
+                     max_aacccdpt=999.0,
+                     max_4rt700t=999.0,
+                     max_fptemp_11=999.0,
+                     n_ccd=6,
+                     dh_heater=True,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
                      min_pitch=45,
                      max_pitch=169,
                      bin_pitch=2,
-                     constraint_models=('minus_yz', 'psmc', 'pline', 'dpa', 'tank'),
-                     ):
+                     constraint_models=('psmc', 'pline', 'dpa', 'dea', 'tank', 'aca',
+                      'fwdblkhd', 'tcylaft6', 'acisfp')):
     """
     Calculate allowed dwell times coming out of perigee given a set of
     constraint models.
@@ -491,18 +648,23 @@ def calc_constraints(start='2013:001',
     :param start: date at which to perform the constraint simulations
     :param n_sim: number of Monte-Carlo simulations of (pitch, starting condition) (default=500)
     :param dt: step size used in thermal model computations (default=1000 sec)
-    :param max_tephin: TEPHIN planning limit (default=138 degF)
-    :param max_tcylaft6: TCYLAFT6 planning limit (default=99 degF)
-    :param max_1pdeaat: 1PDEAAT planning limit (default=52.5 degC)
-    :param max_1dpamzt: 1DPAMZT planning limit (default=32.5 degC)
-    :param max_pftank2t: PFTANK2T planning limit (default=93.0 degF)
+    :param max_tephin: TEPHIN planning limit
+    :param max_tcylaft6: TCYLAFT6 planning
+    :param max_1pdeaat: 1PDEAAT planning limit
+    :param max_1dpamzt: 1DPAMZT planning limit
+    :param max_1deamzt: 1DEAMZT planning limit
+    :param max_pftank2t: PFTANK2T planning limit
+    :param max_aacccdpt: ACA CCD planning limit
+    :param max_4rt700t: OBA forward bulkhead planning limit
+    :param max_acisfp: ACIS Focal Plane limit
     :param n_ccd: number of ACIS CCDs being used
     :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
     :param sim_file: simulation inputs file from "pyger make" (default=sim_inputs.pkl)
     :param min_pitch: minimum pitch in simulations (default=45)
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
-    :param constraint_models: constraint models (default=('minus_yz', 'psmc', 'pline', 'dpa', 'tank'))
+    :param constraint_models: constraint models, default=('psmc', 'pline', 'dpa', 
+        'dea', 'tank')
 
     :returns: dict of computed constraint model objects
     """
@@ -534,20 +696,51 @@ def calc_constraints(start='2013:001',
         constraints['psmc'] = ConstraintPSMC(sim_inputs,
                                              limits={'1pdeaat': max_1pdeaat},
                                              max_dwell_ksec=max_dwell_ksec,
-                                             n_ccd=n_ccd)
+                                             n_ccd=n_ccd,
+                                             dh_heater=dh_heater)
     if 'dpa' in constraint_models:
         constraints['dpa'] = ConstraintDPA(sim_inputs,
                                            limits={'1dpamzt': max_1dpamzt},
+                                           max_dwell_ksec=max_dwell_ksec,
+                                           n_ccd=n_ccd)
+    if 'dea' in constraint_models:
+        constraints['dea'] = ConstraintDEA(sim_inputs,
+                                           limits={'1deamzt': max_1deamzt},
                                            max_dwell_ksec=max_dwell_ksec,
                                            n_ccd=n_ccd)
     if 'tank' in constraint_models:
         constraints['tank'] = ConstraintTank(sim_inputs,
                                              limits={'pftank2t': FtoC(max_pftank2t)},
                                              max_dwell_ksec=max_dwell_ksec)
+    if 'aca' in constraint_models:
+        constraints['aca'] = ConstraintAca(sim_inputs,
+                                           limits={'aacccdpt': max_aacccdpt},
+                                           max_dwell_ksec=max_dwell_ksec)
+
+
+    if 'fwdblkhd' in constraint_models:
+        constraints['fwdblkhd'] = ConstraintFwdblkhd(sim_inputs,
+                                           limits={'4rt700t': FtoC(max_4rt700t)},
+                                           max_dwell_ksec=max_dwell_ksec)
+
+
     if 'pline' in constraint_models:
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,
                                                max_dwell_ksec=max_dwell_ksec)
+					       
+    if 'tcylaft6' in constraint_models:
+        constraints['tcylaft6'] = ConstraintTcylaft6(sim_inputs, 
+                                           limits={'tcylaft6': FtoC(max_tcylaft6)},
+                                           max_dwell_ksec=max_dwell_ksec)				       
+
+    if 'acisfp' in constraint_models:
+        constraints['acisfp'] = ConstraintACISFP(sim_inputs,
+                                           limits={'fptemp_11': max_fptemp_11},
+                                           max_dwell_ksec=max_dwell_ksec,
+                                           n_ccd=n_ccd,
+                                           dh_heater=dh_heater)
+
 
     constraints_list = [constraints[x] for x in constraint_models]
     pitch_bins = np.arange(min_pitch, max_pitch, bin_pitch)
@@ -563,3 +756,163 @@ def calc_constraints(start='2013:001',
     constraints['all'].start = start
 
     return constraints
+
+
+
+
+def calc_constraints2(constraints,
+                      start='2013:001',
+                      n_ccd=None,
+                      dh_heater=True,
+                      max_dwell_ksec=400.,
+                      pitch_num=50,
+                      pitch_range=None,
+                      hot_dwell_temp_ratio=0.9,
+                      T_cool_ratio=0.9,
+                      constraint_models=('psmc', 'dpa', 'dea', 'tank', 'aca', 'fwdblkhd',
+                        'tcylaft6', 'acisfp'),
+                      msids=('tcylaft6', '1pdeaat', '1dpamzt', '1deamzt', 'pftank2t',
+                        'aacccdpt', '4rt700t', 'acisfp_11')
+                      ):
+    """
+    Calculate allowed dwell times coming out of perigee given a set of
+    constraint models.
+
+    :param start: date at which to perform the constraint simulations
+    :param n_ccd: number of ACIS CCDs being used
+    :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
+    :param pitch_num: Number of cool pitch values to simulate for each hot dwell
+    :param pitch_range: Two element list or tuple defining target cooling pitch range. This
+                        allows one to override the default cool pitch values.
+    :param hot_dwell_temp_ratio: Time ratio during hot dwell for which to extract cooldown
+                                 dwell starting conditions. This allows one to initiate a
+                                 cooldown simulation at any point during a hot dwell, not
+                                 just when the hot dwell reaches a thermal limit.
+    :param T_cool_ratio: Temperature ratio with respect to the temperature increase during
+                         each hot dwell, used to calculate the point at which a simulated
+                         cooldown dwell has "cooled". Ultimately, the reported cooling time is
+                         the time it takes for the MSID to reach the "cooled" temperature,
+                         starting at the given hot conditions. A ratio of 0.9 means the MSID
+                         has to have cooled back down 90% to the original hot dwell starting
+                         temperature.
+    :param constraint_models: constraint models included
+
+    :returns: dict of computed constraint model objects
+    """
+
+
+    start = DateTime(start)
+    stop = DateTime(start.secs + max_dwell_ksec * 1000)
+    norm_profile = np.linspace(0, 1, 100)**10
+    times = start.secs + norm_profile * (stop.secs - start.secs)
+
+
+    constraints_list = [constraints[x] for x in constraint_models]
+    cooldown = {}
+    coolstats = {}
+    hotstats = {}
+    for constraint in constraints_list:
+        for msid in msids:
+            if msid in constraint.msids:
+
+                if n_ccd is None:
+                    if n_ccd in constraint.__dict__.keys():
+                        n_ccd = constraint.n_ccd
+                    else:
+                        n_ccd = 6
+
+                cooldown[msid] = constraint.calc_dwells2(msid,
+                                                         start,
+                                                         stop,
+                                                         times,
+                                                         pitch_num=pitch_num, 
+                                                         pitch_range=pitch_range,
+                                                         hot_dwell_temp_ratio=hot_dwell_temp_ratio, 
+                                                         T_cool_ratio=T_cool_ratio,
+                                                         ccd_count=n_ccd)
+                coolstats[msid] = calc_dwell2_cool_stats(cooldown[msid])
+                hotstats[msid] = calc_dwell2_hot_stats(cooldown[msid])
+
+    return cooldown, coolstats, hotstats
+
+
+
+def calc_dwell2_cool_stats(dwell2_case):
+    """ Calculate relevant statistics for "cooldown" dwell simulations.
+  
+    :param dwell2_case: This is a Numpy recarray representing the output of calc_constraints2() for
+                        a single MSID. If running calc_constraints2() for multiple MSIDs, run
+                        calc_dwell2_stats() for each MSID individually.
+  
+    :returns: Numpy recarray of relevant statistical data
+  
+    """
+
+    dwell2_pitches = dwell2_case['dwell2_pitch_set'][0] # Each set is identical
+    dwell2_times = dwell2_case['dwell2_times'].swapaxes(0,1)
+    coolstats = []
+    for timeset, pitch in zip(dwell2_times, dwell2_pitches):
+        t = np.sort(timeset)
+        coolstats.append((pitch, 
+                          t[int(len(t) * 0.1)],
+                          t[int(len(t) * 0.5)],
+                          t[int(len(t) * 0.9)]))
+
+    dtype = np.dtype([('pitch', np.float64),
+                      ('perc10', np.float64),
+                      ('perc50', np.float64),
+                      ('perc90', np.float64)])
+    
+    coolstats = np.rec.fromrecords(coolstats, dtype)
+    coolstats.sort(order='pitch')
+
+    return coolstats
+
+
+def calc_dwell2_hot_stats(dwell2_case):
+    """ Calculate relevant statistics for hot dwells used to seed cooldown simulations.
+  
+    :param dwell2_case: This is a Numpy recarray representing the output of calc_constraints2() for
+                        a single MSID. If running calc_constraints2() for multiple MSIDs, run
+                        calc_dwell2_stats() for each MSID individually.
+  
+    :returns: Numpy recarray of relevant statistical data
+  
+    Although the hot dwell data was already calculated and is present in the dwells1 datastructure,
+    the full hot dwell durations are not 100% comparable to the cooldown dwells due to the
+    cooldown temperature ratio (T_cool_ratio) used to determine when a cooldown dwell has reached
+    "close enough" to the original starting temperature. The comparable hot dwell time has a
+    portion of the initial dwell time "clipped" from the total duration. The amount of time clipped is equal to
+    the amount of time it would take to reach the "close enough" cooldown temperature during the
+    hot dwell starting at the dwell1 T0.
+
+    """
+
+    dwell2_case.sort(order='dwell1_pitch')
+    
+    pitch_set = np.arange(min(dwell2_case.dwell1_pitch), max(dwell2_case.dwell1_pitch) + 1, 2)
+    pitch_pairs = [(pitch_set[n], pitch_set[n + 1]) for n in range(len(pitch_set) - 1)]
+    
+    hotstats = []
+    for p in pitch_pairs:
+        ind1 = dwell2_case.dwell1_pitch >= p[0]
+        ind2 = dwell2_case.dwell1_pitch < p[1]
+        ind = ind1 & ind2
+        if any(ind):
+            hotstats.append((np.mean(p), np.mean(dwell2_case.dwell1_duration[ind]), np.mean(dwell2_case.dwell1_duration_delta[ind])))
+
+    dtype = np.dtype([('pitch', np.float64),
+                      ('dwell1_duration', np.float64),
+                      ('dwell1_duration_delta', np.float64)])
+
+    
+    # This is a bit of a hack, but prevents the recarray conversion from failing
+    if len(hotstats) > 0:
+        hotstats = np.rec.fromrecords(hotstats, dtype)
+    else:
+        hotstats = np.rec.fromrecords([[],[],[]], dtype)
+
+    return hotstats
+
+
+
