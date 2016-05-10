@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 import os
 
 long_description = """
@@ -26,6 +26,7 @@ setup(name='pyger',
       download_url='',
       license='BSD',
       platforms=['any'],
+      zip_safe=False,
       classifiers=[
           'Development Status :: 4 - Beta',
           'Intended Audience :: Science/Research',
