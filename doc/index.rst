@@ -27,8 +27,9 @@ Pyger is a tool for calculating allowed hot dwell times and associated cooldown 
 
 Due to the large number of constraints and the potential complexity of their interaction, it is suggested that dwell time characteristics be calculated on an individual model by model basis and superimposed while post processing the data rather than including multiple models in the initial dwell time simulations. Although the latter is possible in the current Pyger framework, it limits one's ability to draw insights from the data.
 
-Please see the included Jupyter notebook for examples on how to use Pyger.
+Please see the Jupyter notebook for examples on how to use Pyger `in the repository hosted on Github here`_.
 
+.. _in the repository hosted on Github here: https://github.com/sot/pyger/blob/1.0/doc/Pyger_Demo.ipynb
 
 Contents:
 
