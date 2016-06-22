@@ -95,139 +95,6 @@ def load_pyger_pickle(filename):
     return pyger_compatible_data
 
 
-class ConstraintPline(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec):
-        ConstraintModel.__init__(self, 'pline', sim_inputs, limits, max_dwell_ksec)
-        guidelines = asciitable.read(os.path.join(pkg_dir, 'pline_guidelines.dat'))
-        # Convert guidelines to a more useful structure
-        limits = []
-        for guideline in guidelines:
-            for colname in guidelines.dtype.names[2:]:
-                cold_pitch_min, cold_pitch_max = re.search(r'dwell_(\d+)_(\d+)', colname).groups()
-                limits.append(dict(warm_dwell=guideline['warm_dwell'] * 3600.,
-                                   warm_pitch_max=guideline['warm_pitch_max'],
-                                   cold_pitch_min=float(cold_pitch_min),
-                                   cold_pitch_max=float(cold_pitch_max),
-                                   cold_pitch_dur=hour_min_to_sec(guideline[colname])))
-        self.limits = limits
-
-    def calc_dwells1(self, start, stop, times, pitches1, i_sims):
-        self.start = start
-        self.calc_dwell1_T0s(start)
-
-        dwells1 = []
-        logger.info('{0}: simulating {1} dwells'.format(self.name.upper(), len(i_sims)))
-        for i_sim, pitch1 in zip(i_sims, pitches1):
-            sim_input = self.sim_inputs[i_sim]
-            warm_dwell, warm_pitch_max = sim_input['dwell1_T0s']
-
-            for limit in self.limits:
-                if (warm_dwell >= limit['warm_dwell'] and
-                    warm_pitch_max <= limit['warm_pitch_max'] and
-                    pitch1 >= limit['cold_pitch_min'] and
-                        pitch1 < limit['cold_pitch_max']):
-                    dwell_dur = limit['cold_pitch_dur']
-                    constraint_name = 'pline'
-                    break
-            else:
-                dwell_dur = self.max_dwell_ksec * 1000
-                constraint_name = 'none'
-
-            dwells1.append((dwell_dur, pitch1, constraint_name, [warm_dwell, warm_pitch_max]))
-
-        self.dwells1 = np.rec.fromrecords(dwells1,
-                                          dtype=[('duration', np.float64),
-                                                 ('pitch', np.float64),
-                                                 ('constraint_name', '|S10'),
-                                                 ('T1', np.float64, (2,))
-                                                 ])
-
-    def calc_dwell1_T0s(self, start):
-        """Calculate the warm dwells for the ensemble of pitch
-        profiles at the given ``start`` time.  Creates sim_inputs[]['dwell1_T0s']
-        and sim_inputs[]['warm_pitch_max'] values.  Compare to this guideline table
-        (values in hours):
-
-        warm_dwell warm_pitch_max dwell_156_162  dwell_156_166  dwell_156_170 dwell_170_180
-        30         80             9:20           7:50           4:20          0:00
-        12         90             7:00           5:30           3:00          0:00
-        10         90             6:15           5:10           2:40          0:00
-        8          90             5:15           4:20           2:15          0:00
-        8          110            5:00           4:15           2:00          0:00
-        0          180            0:00           0:00           0:00          0:00
-        """
-
-        logger.info('{0}: calculating warm time for {1} dwells'.format(
-            self.name.upper(), len(self.sim_inputs)))
-        for sim_input in self.sim_inputs:
-            warm_pitch_max = 0
-            warm_dwell = 0
-            for state in reversed(sim_input['states']):
-                # States less than 10 minutes don't count toward warm/cold time
-                dwell = state['tstop'] - state['tstart']
-                if dwell < 600:
-                    continue
-                if state['pitch'] > 110:
-                    break
-                warm_pitch_max = max(state['pitch'], warm_pitch_max)
-                warm_dwell += dwell
-            sim_input['dwell1_T0s'] = [warm_dwell, warm_pitch_max]
-
-
-class ConstraintMinusZ(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec):
-        model_spec = os.path.join(pkg_dir, 'minusz_spec.json')
-        self.model_spec = json.load(open(model_spec, 'r'))
-        ConstraintModel.__init__(self, 'minus_z', sim_inputs, limits,
-                                 max_dwell_ksec)
-
-    def _get_init_comps(self, T0s, states):
-        # Initialize all
-
-        state_times = np.array([states['tstart'], states['tstop']])
-        init_comps = {'pitch': (states['pitch'], state_times),
-                      'eclipse': False,
-                      'tcylaft6': T0s[0],
-                      'tcylfmzm': T0s[1],
-                      'tephin': T0s[2],
-                      'tfssbkt1': T0s[3],
-                      'tmzp_my': T0s[4]}
-
-        return init_comps
-
-    def _get_states1(self, start, stop, pitch1, **stateskw):
-        states = [(start.secs, stop.secs, pitch1)]
-        names = ('tstart', 'tstop', 'pitch')
-        return np.rec.fromrecords(states, names=names)
-
-
-class ConstraintMinusYZ(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec):
-        model_spec = os.path.join(pkg_dir, 'minusyz_model.json')
-        self.model_spec = json.load(open(model_spec, 'r'))
-        ConstraintModel.__init__(self, 'minus_yz', sim_inputs, limits,
-                                 max_dwell_ksec)
-
-    def _get_init_comps(self, T0s, states):
-
-        state_times = np.array([states['tstart'], states['tstop']])
-        init_comps = {'pitch': (states['pitch'], state_times),
-                      'eclipse': False,
-                      'pmtank3t': T0s[0],
-                      'tephin': T0s[1],
-                      'tcylaft6': T0s[2],
-                      'tcylaft6_0': T0s[2] - 4.0,
-                      'pmtank3t_0': T0s[0],
-                      'tephin_0': T0s[1]}
-
-        return init_comps
-
-    def _get_states1(self, start, stop, pitch1, **stateskw):
-        states = [(start.secs, stop.secs, pitch1)]
-        names = ('tstart', 'tstop', 'pitch')
-        return np.rec.fromrecords(states, names=names)
-
-
 class ConstraintDPA(ConstraintModel):
     def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
         self.n_ccd = n_ccd
@@ -321,7 +188,8 @@ class ConstraintTank(ConstraintModel):
         init_comps = {'pitch': (states['pitch'], state_times),
                       'eclipse': False,
                       'pf0tank2t': 22 + 14. / 17. * (T0s[0] - 22.0),
-                      'pftank2t': T0s[0]}
+                      'pftank2t': T0s[0],
+          'roll':0.0}
 
         return init_comps
 
@@ -417,7 +285,9 @@ class ConstraintPSMC(ConstraintModel):
                       'pin1at': T0s[0] - 10.5,
                       '1pdeaat': T0s[0],
                       'dpa_power': 0.0,
-                      'dh_heater':self.dh_heater}
+                      'eclipse': False,
+                      'dh_heater':self.dh_heater, 
+                      'roll': 0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
@@ -490,140 +360,9 @@ class ConstraintACISFP(ConstraintModel):
         return np.rec.fromrecords(states, names=names)
 
 
-
-def plot_dwells1(constraint, plot_title=None, plot_file=None, figure=1):
-    """Make a simple plot of the dwells and dwell statistics for the given
-    ``constraint``.
-
-    :param constraint: ConstraintModel object (e.g. constraints['all'])
-    :param plot_title: plot title
-    :param plot_file: output file for plot
-    :param figure: matplotlib figure ID (default=1)
-    """
-    plt.rc("axes", labelsize=10, titlesize=12)
-    plt.rc("xtick", labelsize=10)
-    plt.rc("ytick", labelsize=10)
-    plt.rc("font", size=10)
-    plt.rc("legend", fontsize=10)
-
-    dwells1 = constraint.dwells1
-    dwell1_stats = constraint.dwell1_stats
-    plt.figure(figure, figsize=(6, 4))
-    plt.clf()
-    names = ('none', '1pdeaat', 'tcylaft6', '4rt700t',
-             '1dpamzt', '1deamzt', 'pftank2t', 'aacccdpt')
-    colors = ('r', 'g', 'k', 'c', 'b', 'm', 'y', 'g')
-    for name, color in zip(names, colors):
-        ok = dwells1['constraint_name'] == name
-        plt.plot(dwells1['pitch'][ok], dwells1['duration'][ok] / 1000., '.' + color,
-                 markersize=3, label=name, mec=color)
-    plt.plot(dwell1_stats['pitch'], dwell1_stats['dur50'] / 1000., '-r')
-    plt.plot(dwell1_stats['pitch'], dwell1_stats['dur90'] / 1000., '-m')
-    plt.grid()
-    plt.title(plot_title or '')
-    plt.xlabel('Pitch (deg)')
-    plt.ylabel('Dwell (ksec)')
-    plt.legend(loc='upper center')
-    plt.ylim(constraint.max_dwell_ksec * -0.05, constraint.max_dwell_ksec * 1.05)
-    plt.subplots_adjust(bottom=0.12)
-    if plot_file:
-        logger.info('Writing constraint plot file {0}'.format(plot_file))
-        plt.savefig(plot_file)
-
-
-def plot_cooldown(constraints2, coolstats, hotstats, model, msid, limit, filename, 
-                  save_to_file=True, additional_title_text=None):
-    colorpalate = ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"]
-    lightblue = "#81CCf4"
-
-    if additional_title_text is None:
-        additional_title_text = ''
-
-    # Create plot framework
-    fig = plt.figure(figsize=[14,8], facecolor='w')
-    rect = [0.06, 0.1, 0.88, 0.8]
-    ax = fig.add_axes(rect)
-
-
-    if len(np.array(hotstats).flatten()) > 0:
-
-        # fill in NaNs in cool stats for hot regions, sort by pitch
-        nans = np.array([np.nan] * len(hotstats.pitch))
-        coolpitch = np.concatenate((coolstats.pitch, hotstats.pitch), axis=0)
-        coolperc10 = np.concatenate((coolstats.perc10, nans), axis=0)
-        coolperc50 = np.concatenate((coolstats.perc50, nans), axis=0)
-        coolperc90 = np.concatenate((coolstats.perc90, nans), axis=0)
-        ind = coolpitch.argsort()
-        coolpitch = coolpitch[ind]
-        coolperc10 = coolperc10[ind]
-        coolperc50 = coolperc50[ind]
-        coolperc90 = coolperc90[ind]
-        
-
-        # Plot data
-        ax.plot(constraints2.dwell2_pitch_set, constraints2.dwell2_times, '.', 
-                color=lightblue, alpha=0.1)
-        ax.fill_between(coolpitch, coolperc10, coolperc90, facecolor=colorpalate[1], alpha=0.5)
-        ax.plot(coolpitch, coolperc50, label='50 Perc Cooldown Time', linewidth=3, color=colorpalate[1])
-        ax.plot(coolpitch, coolperc10, label='10 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
-        ax.plot(coolpitch, coolperc90, label='90 Perc Cooldown Time', linewidth=2, color=colorpalate[1])
-
-        ax.plot(hotstats.pitch, hotstats.dwell1_duration,
-                linewidth=2, color=[0.4, 0.4, 0.4], label='Max Dwell Time')
-
-        dwell1pitch = constraints2.dwell1_pitch
-        #duration = constraints2.dwell1_duration
-        duration_delta = constraints2.dwell1_duration_delta
-
-        ax.plot(dwell1pitch, duration_delta, '.', color=colorpalate[0], alpha=0.4)
-        ax.plot(hotstats.pitch, hotstats.dwell1_duration_delta, color=colorpalate[0], label='Heatup Time From Tcooled to Limit', linewidth=3)
-        ax.fill_between(hotstats.pitch, 0, hotstats.dwell1_duration_delta, facecolor=colorpalate[0], alpha=0.2)
-
-        # Annotate and format the plot
-        ax.legend(loc='best')
-        ylim = ax.get_ylim()
-        yticks = np.arange(ylim[0], ylim[1] + 1, 25000)
-        ax.set_yticks(yticks)
-        ax.set_yticklabels(yticks/1000.)
-        ax.set_ylim(ylim)
-        ax.set_xticks(range(45,175,5))
-        ax.set_xlim(45, 170)
-        ax.grid()
-        ax.set_ylabel('Dwell Time in Kiloseconds')
-        ax.set_xlabel('Pitch')
-    else:
-        ax.text(0.5, 0.5, 'Condition Not Limiting', ha='center', va='center', fontsize = 16)
-
-    ax.set_title('{0}: Date:{1}, Limit={2}{3}'.format(msid.upper(),
-                                                      DateTime(constraints2[0].dwell1_start).date[:8],
-                                                      str(float(limit)),
-                                                      additional_title_text))
-
-    # Save plot to file
-    if save_to_file:
-        fig.savefig(filename)
-
-
-def merge_dwells1(constraints):
-    """Merge the dwells in the ``constraints`` list, finding the shortest from among the
-    constraints.
-
-    :param constraints: list of ModelConstraint objects
-    :returns: NumPy recarray of dwells with pitch, duration, constraint_name columns
-    """
-    dwells1 = []
-    for i in range(constraints[0].n_sim):
-        constraint = min(constraints, key=lambda x: x.dwells1['duration'][i])
-        dwells1.append(tuple(constraint.dwells1[x][
-                       i] for x in ('pitch', 'duration', 'constraint_name')))
-    dwells1 = np.rec.fromrecords(dwells1, names=('pitch', 'duration', 'constraint_name'))
-    return dwells1
-
-
 def calc_constraints(start='2013:001',
                      n_sim=500,
                      dt=1000.,
-                     max_tephin=999.0,
                      max_tcylaft6=999.0,
                      max_1pdeaat=999.0,
                      max_1dpamzt=999.0,
@@ -648,7 +387,6 @@ def calc_constraints(start='2013:001',
     :param start: date at which to perform the constraint simulations
     :param n_sim: number of Monte-Carlo simulations of (pitch, starting condition) (default=500)
     :param dt: step size used in thermal model computations (default=1000 sec)
-    :param max_tephin: TEPHIN planning limit
     :param max_tcylaft6: TCYLAFT6 planning
     :param max_1pdeaat: 1PDEAAT planning limit
     :param max_1dpamzt: 1DPAMZT planning limit
@@ -682,16 +420,6 @@ def calc_constraints(start='2013:001',
     i_sims = np.random.randint(n_sim_inputs, size=n_sim)
     pitches1 = np.random.uniform(min_pitch, max_pitch, size=n_sim)
     constraints = {}
-    if 'minus_z' in constraint_models:
-        constraints['minus_z'] = ConstraintMinusZ(sim_inputs,
-                                                  limits=dict(tephin=FtoC(max_tephin),
-                                                              tcylaft6=FtoC(max_tcylaft6)),
-                                                  max_dwell_ksec=max_dwell_ksec)
-    if 'minus_yz' in constraint_models:
-        constraints['minus_yz'] = ConstraintMinusYZ(sim_inputs,
-                                                    limits=dict(tephin=FtoC(max_tephin),
-                                                                tcylaft6=FtoC(max_tcylaft6)),
-                                                    max_dwell_ksec=max_dwell_ksec)
     if 'psmc' in constraint_models:
         constraints['psmc'] = ConstraintPSMC(sim_inputs,
                                              limits={'1pdeaat': max_1pdeaat},
@@ -728,11 +456,11 @@ def calc_constraints(start='2013:001',
         constraints['pline'] = ConstraintPline(sim_inputs,
                                                limits=None,
                                                max_dwell_ksec=max_dwell_ksec)
-					       
+                 
     if 'tcylaft6' in constraint_models:
         constraints['tcylaft6'] = ConstraintTcylaft6(sim_inputs, 
                                            limits={'tcylaft6': FtoC(max_tcylaft6)},
-                                           max_dwell_ksec=max_dwell_ksec)				       
+                                           max_dwell_ksec=max_dwell_ksec)              
 
     if 'acisfp' in constraint_models:
         constraints['acisfp'] = ConstraintACISFP(sim_inputs,
@@ -834,7 +562,6 @@ def calc_constraints2(constraints,
                 hotstats[msid] = calc_dwell2_hot_stats(cooldown[msid])
 
     return cooldown, coolstats, hotstats
-
 
 
 def calc_dwell2_cool_stats(dwell2_case):

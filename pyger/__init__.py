@@ -1,11 +1,10 @@
 import warnings
 warnings.simplefilter('ignore')
 
-from .pyger import (calc_constraints, calc_constraints2, plot_dwells1,
-                    __version__, CtoF, ConstraintModel, ConstraintPline, ConstraintMinusZ, 
-                    ConstraintPSMC, ConstraintMinusYZ, ConstraintDPA, ConstraintTank,
+from .pyger import (calc_constraints, calc_constraints2, __version__, CtoF, ConstraintModel, 
+                    ConstraintPSMC, ConstraintDPA, ConstraintDEA, ConstraintTank,
                     ConstraintAca, ConstraintFwdblkhd, ConstraintACISFP, save_pyger_pickle,
-                    load_pyger_pickle, read_cases, run_pyger_cases, PostPyger, plot_cooldown)
+                    load_pyger_pickle, read_cases, run_pyger_cases, PostPyger)
 
 from .make_sim_inputs import make_sim_inputs
 
@@ -46,9 +45,6 @@ def get_options(args=None):
     parser_sim.add_argument("--dt",
                             type=float,
                             help="Delta time for sims (sec)")
-    parser_sim.add_argument("--max-tephin",
-                            type=float,
-                            help="TEPHIN planning limit (degF)")
     parser_sim.add_argument("--max-tcylaft6",
                             type=float,
                             help="TCYLAFT6 planning limit (degF)")
@@ -79,11 +75,6 @@ def get_options(args=None):
     parser_sim.add_argument("--sim-file",
                             default="sim_inputs.pkl",
                             help="Simulation inputs pickle file")
-    parser_sim.add_argument("--plot-file",
-                            default="constraints.png",
-                            help="Output plot file name")
-    parser_sim.add_argument("--plot-title",
-                            help="Title on output plot")
     parser_sim.set_defaults(func=calc_constraints)
 
     return parser.parse_args(args)
@@ -99,18 +90,6 @@ def main(args=None):
         import matplotlib
         matplotlib.use('Agg')
         constraints = calc_constraints(**opt_args)
-        if opt.plot_file:
-            plot_title = (opt.plot_title or
-                          '{0} Tephin:{1:.0f} Tcylaft6:{2:.0f} pftank2t:{3:.0f} N_ccd:{4:d}'.format(
-                              constraints['all'].start.date[:8],
-                              CtoF(constraints['minus_yz'].limits['tephin']),
-                              CtoF(constraints['minus_yz'].limits['tcylaft6']),
-                              CtoF(constraints['tank'].limits['pftank2t']),
-                              constraints['psmc'].n_ccd
-                          ))
-            plot_dwells1(constraints['all'],
-                         plot_title=plot_title,
-                         plot_file=opt.plot_file)
     elif opt.func == make_sim_inputs:
         make_sim_inputs(**opt_args)
 
