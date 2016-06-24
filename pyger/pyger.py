@@ -188,8 +188,7 @@ class ConstraintTank(ConstraintModel):
         init_comps = {'pitch': (states['pitch'], state_times),
                       'eclipse': False,
                       'pf0tank2t': 22 + 14. / 17. * (T0s[0] - 22.0),
-                      'pftank2t': T0s[0],
-          'roll':0.0}
+                      'pftank2t': T0s[0]}
 
         return init_comps
 
