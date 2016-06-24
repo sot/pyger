@@ -359,6 +359,21 @@ class ConstraintACISFP(ConstraintModel):
         return np.rec.fromrecords(states, names=names)
 
 
+def merge_dwells1(constraints):
+    """Merge the dwells in the ``constraints`` list, finding the shortest from among the
+    constraints.
+    :param constraints: list of ModelConstraint objects
+    :returns: NumPy recarray of dwells with pitch, duration, constraint_name columns
+    """
+    dwells1 = []
+    for i in range(constraints[0].n_sim):
+        constraint = min(constraints, key=lambda x: x.dwells1['duration'][i])
+        dwells1.append(tuple(constraint.dwells1[x][
+                       i] for x in ('pitch', 'duration', 'constraint_name')))
+    dwells1 = np.rec.fromrecords(dwells1, names=('pitch', 'duration', 'constraint_name'))
+    return dwells1
+
+
 def calc_constraints(start='2013:001',
                      n_sim=500,
                      dt=1000.,
