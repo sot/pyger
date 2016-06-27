@@ -29,7 +29,7 @@ Due to the large number of constraints and the potential complexity of their int
 
 Please see the Jupyter notebook for examples on how to use Pyger `in the repository hosted on Github here`_.
 
-.. _in the repository hosted on Github here: https://github.com/sot/pyger/blob/1.0/doc/Pyger_Demo.ipynb
+.. _in the repository hosted on Github here: https://github.com/sot/pyger/blob/1.1/doc/Pyger_Demo.ipynb
 
 Contents:
 

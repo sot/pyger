@@ -457,7 +457,7 @@ class ConstraintModel(object):
 
             Tlim = self.limits[self.msids[msid_ind]]
 
-            # If the user does run with more than one limit active (e.g. tephin and tcylaft6),
+            # If the user does run with more than one limit active (e.g. aacccdpt and tcylaft6),
             # then the temperature may not actually reach the limit for the msid specified in the
             # calc_dwells2() function call. More specfically, the dwell will be registered in the
             # self.dwells1 datastructure due to reaching a different limit, however this particular
