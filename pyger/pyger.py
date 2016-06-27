@@ -392,8 +392,8 @@ def calc_constraints(start='2013:001',
                      min_pitch=45,
                      max_pitch=169,
                      bin_pitch=2,
-                     constraint_models=('psmc', 'pline', 'dpa', 'dea', 'tank', 'aca',
-                      'fwdblkhd', 'tcylaft6', 'acisfp')):
+                     constraint_models=('psmc', 'dpa', 'dea', 'tank', 'aca', 'fwdblkhd',
+                      'tcylaft6', 'acisfp')):
     """
     Calculate allowed dwell times coming out of perigee given a set of
     constraint models.
@@ -415,8 +415,8 @@ def calc_constraints(start='2013:001',
     :param min_pitch: minimum pitch in simulations (default=45)
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
-    :param constraint_models: constraint models, default=('psmc', 'pline', 'dpa', 
-        'dea', 'tank')
+    :param constraint_models: constraint models, default=('psmc', 'dpa', 'dea', 'tank', 'aca',
+        'fwdblkhd', 'tcylaft6', 'acisfp')
 
     :returns: dict of computed constraint model objects
     """
@@ -459,18 +459,11 @@ def calc_constraints(start='2013:001',
                                            limits={'aacccdpt': max_aacccdpt},
                                            max_dwell_ksec=max_dwell_ksec)
 
-
     if 'fwdblkhd' in constraint_models:
         constraints['fwdblkhd'] = ConstraintFwdblkhd(sim_inputs,
                                            limits={'4rt700t': FtoC(max_4rt700t)},
                                            max_dwell_ksec=max_dwell_ksec)
 
-
-    if 'pline' in constraint_models:
-        constraints['pline'] = ConstraintPline(sim_inputs,
-                                               limits=None,
-                                               max_dwell_ksec=max_dwell_ksec)
-                 
     if 'tcylaft6' in constraint_models:
         constraints['tcylaft6'] = ConstraintTcylaft6(sim_inputs, 
                                            limits={'tcylaft6': FtoC(max_tcylaft6)},
