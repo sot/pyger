@@ -96,8 +96,9 @@ def load_pyger_pickle(filename):
 
 
 class ConstraintDPA(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, roll=0.0):
         self.n_ccd = n_ccd
+        self.roll = roll
         model_spec = os.path.join(pkg_dir, 'dpa_model_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
         ConstraintModel.__init__(self, 'dpa', sim_inputs, limits,
@@ -110,7 +111,7 @@ class ConstraintDPA(ConstraintModel):
                       'eclipse': False,
                       '1dpamzt': T0s[0],
                       'dpa_power': 0.0, 
-                      'roll': 0.0}
+                      'roll': self.roll}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
@@ -134,8 +135,9 @@ class ConstraintDPA(ConstraintModel):
 
 
 class ConstraintDEA(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, roll=0.0):
         self.n_ccd = n_ccd
+        self.roll = roll
         model_spec = os.path.join(pkg_dir, 'dea_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
         ConstraintModel.__init__(self, 'dea', sim_inputs, limits,
@@ -148,7 +150,7 @@ class ConstraintDEA(ConstraintModel):
                       'eclipse': False,
                       '1deamzt': T0s[0],
                       'dpa_power': 0.0, 
-                      'roll': 0.0}
+                      'roll': self.roll}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
@@ -172,9 +174,10 @@ class ConstraintDEA(ConstraintModel):
 
 
 class ConstraintTank(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, roll=0.0):
         model_spec = os.path.join(pkg_dir, 'pftank2t_model_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
+        self.roll = roll
         ConstraintModel.__init__(self, 'tank', sim_inputs, limits,
                                  max_dwell_ksec)
 
@@ -188,7 +191,8 @@ class ConstraintTank(ConstraintModel):
         init_comps = {'pitch': (states['pitch'], state_times),
                       'eclipse': False,
                       'pf0tank2t': 22 + 14. / 17. * (T0s[0] - 22.0),
-                      'pftank2t': T0s[0]}
+                      'pftank2t': T0s[0], 
+                      'roll': self.roll}
 
         return init_comps
 
@@ -222,9 +226,10 @@ class ConstraintFwdblkhd(ConstraintModel):
 
 
 class ConstraintTcylaft6(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, roll=0.0):
         model_spec = os.path.join(pkg_dir, 'tcylaft6_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
+        self.roll = roll
         ConstraintModel.__init__(self, 'tcylaft6', sim_inputs, limits,
                                  max_dwell_ksec)
 
@@ -234,7 +239,8 @@ class ConstraintTcylaft6(ConstraintModel):
         init_comps = {'pitch': (states['pitch'], state_times),
                       'eclipse': False,
                       'tcylaft6_0': T0s[0],
-                      'tcylaft6': T0s[0]}
+                      'tcylaft6': T0s[0], 
+                      'roll': self.roll}
 
         return init_comps
 
@@ -267,8 +273,9 @@ class ConstraintAca(ConstraintModel):
 
 
 class ConstraintPSMC(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, dh_heater=True):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, dh_heater=True, roll=0.0):
         self.n_ccd = n_ccd
+        self.roll = roll
         self.dh_heater = dh_heater
         model_spec = os.path.join(pkg_dir, 'psmc_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
@@ -286,7 +293,7 @@ class ConstraintPSMC(ConstraintModel):
                       'dpa_power': 0.0,
                       'eclipse': False,
                       'dh_heater':self.dh_heater, 
-                      'roll': 0.0}
+                      'roll': self.roll}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
@@ -386,6 +393,7 @@ def calc_constraints(start='2013:001',
                      max_4rt700t=999.0,
                      max_fptemp_11=999.0,
                      n_ccd=6,
+                     roll=0.0,
                      dh_heater=True,
                      sim_file='sim_inputs.pkl',
                      max_dwell_ksec=200.,
@@ -410,6 +418,7 @@ def calc_constraints(start='2013:001',
     :param max_4rt700t: OBA forward bulkhead planning limit
     :param max_acisfp: ACIS Focal Plane limit
     :param n_ccd: number of ACIS CCDs being used
+    :param roll: roll used for simulations
     :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
     :param sim_file: simulation inputs file from "pyger make" (default=sim_inputs.pkl)
     :param min_pitch: minimum pitch in simulations (default=45)
@@ -439,21 +448,25 @@ def calc_constraints(start='2013:001',
                                              limits={'1pdeaat': max_1pdeaat},
                                              max_dwell_ksec=max_dwell_ksec,
                                              n_ccd=n_ccd,
-                                             dh_heater=dh_heater)
+                                             dh_heater=dh_heater,
+                                             roll=roll)
     if 'dpa' in constraint_models:
         constraints['dpa'] = ConstraintDPA(sim_inputs,
                                            limits={'1dpamzt': max_1dpamzt},
                                            max_dwell_ksec=max_dwell_ksec,
-                                           n_ccd=n_ccd)
+                                           n_ccd=n_ccd,
+                                           roll=roll)
     if 'dea' in constraint_models:
         constraints['dea'] = ConstraintDEA(sim_inputs,
                                            limits={'1deamzt': max_1deamzt},
                                            max_dwell_ksec=max_dwell_ksec,
-                                           n_ccd=n_ccd)
+                                           n_ccd=n_ccd,
+                                           roll=roll)
     if 'tank' in constraint_models:
         constraints['tank'] = ConstraintTank(sim_inputs,
                                              limits={'pftank2t': FtoC(max_pftank2t)},
-                                             max_dwell_ksec=max_dwell_ksec)
+                                             max_dwell_ksec=max_dwell_ksec,
+                                             roll=roll)
     if 'aca' in constraint_models:
         constraints['aca'] = ConstraintAca(sim_inputs,
                                            limits={'aacccdpt': max_aacccdpt},
@@ -461,13 +474,14 @@ def calc_constraints(start='2013:001',
 
     if 'fwdblkhd' in constraint_models:
         constraints['fwdblkhd'] = ConstraintFwdblkhd(sim_inputs,
-                                           limits={'4rt700t': FtoC(max_4rt700t)},
-                                           max_dwell_ksec=max_dwell_ksec)
+                                                     limits={'4rt700t': FtoC(max_4rt700t)},
+                                                     max_dwell_ksec=max_dwell_ksec)
 
     if 'tcylaft6' in constraint_models:
         constraints['tcylaft6'] = ConstraintTcylaft6(sim_inputs, 
-                                           limits={'tcylaft6': FtoC(max_tcylaft6)},
-                                           max_dwell_ksec=max_dwell_ksec)              
+                                                     limits={'tcylaft6': FtoC(max_tcylaft6)},
+                                                     max_dwell_ksec=max_dwell_ksec,
+                                                     roll=roll)              
 
     if 'acisfp' in constraint_models:
         constraints['acisfp'] = ConstraintACISFP(sim_inputs,

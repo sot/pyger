@@ -53,6 +53,7 @@ def run_pyger_cases(cases, savedwell1=False):
                                               max_4rt700t=float(case['max_4rt700t']),
                                               max_fptemp_11=float(case['max_fptemp_11']),
                                               n_ccd=int(case['n_ccd_dwell1']),
+                                              roll=int(case['roll']),
                                               dh_heater=dh_heater,
                                               n_sim=int(case['n_sim']),
                                               max_dwell_ksec=float(case['max_dwell_ksec']),
