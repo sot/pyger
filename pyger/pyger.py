@@ -54,7 +54,7 @@ def save_pyger_pickle(constraints, filename):
 
     """
     pickleable = ['dwell1_stats', 'dwells1', 'times', 'limits', 'max_dwell_ksec', 'model_spec', 
-                  'msids', 'name', 'n_ccd', 'n_sim', 'sim_inputs', 'start', 'state_col']
+                  'msids', 'name', 'n_ccd', 'n_sim', 'sim_inputs', 'start', 'state_col', 'roll']
 
     all_pickle_data = {}
     for name in constraints:
@@ -108,18 +108,18 @@ class ConstraintDPA(ConstraintModel):
 
         state_times = np.array([states['tstart'], states['tstop']])
         init_comps = {'sim_z': (states['simpos'], state_times),
+                      'roll': (states['roll'], state_times),
                       'eclipse': False,
                       '1dpamzt': T0s[0],
-                      'dpa_power': 0.0, 
-                      'roll': self.roll}
+                      'dpa_power': 0.0}
 
-        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch', 'roll'):
             init_comps[name] = (states[name], state_times)
 
         return init_comps
 
     def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
-                     clocking=1, simpos=75000, **stateskw):
+                     clocking=1, simpos=75000, roll=None, **stateskw):
 
         if ccd_count is None:
             ccd_count = self.n_ccd
@@ -127,10 +127,13 @@ class ConstraintDPA(ConstraintModel):
         if fep_count is None:
             fep_count = ccd_count
 
+        if roll is None:
+            roll = self.roll
+
         states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
-                   pitch1, simpos)]
+                   pitch1, simpos, roll)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
-                 'clocking', 'pitch', 'simpos')
+                 'clocking', 'pitch', 'simpos', 'roll')
         return np.rec.fromrecords(states, names=names)
 
 
@@ -147,18 +150,18 @@ class ConstraintDEA(ConstraintModel):
 
         state_times = np.array([states['tstart'], states['tstop']])
         init_comps = {'sim_z': (states['simpos'], state_times),
+                      'roll': (states['roll'], state_times),
                       'eclipse': False,
                       '1deamzt': T0s[0],
-                      'dpa_power': 0.0, 
-                      'roll': self.roll}
+                      'dpa_power': 0.0}
 
-        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
+        for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch', 'roll'):
             init_comps[name] = (states[name], state_times)
 
         return init_comps
 
     def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
-                     clocking=1, simpos=75000, **stateskw):
+                     clocking=1, simpos=75000, roll=None, **stateskw):
 
         if ccd_count is None:
             ccd_count = self.n_ccd
@@ -166,10 +169,13 @@ class ConstraintDEA(ConstraintModel):
         if fep_count is None:
             fep_count = ccd_count
 
+        if roll is None:
+            roll = self.roll
+
         states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
-                   pitch1, simpos)]
+                   pitch1, simpos, roll)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
-                 'clocking', 'pitch', 'simpos')
+                 'clocking', 'pitch', 'simpos', 'roll')
         return np.rec.fromrecords(states, names=names)
 
 
@@ -189,16 +195,20 @@ class ConstraintTank(ConstraintModel):
 
         state_times = np.array([states['tstart'], states['tstop']])
         init_comps = {'pitch': (states['pitch'], state_times),
+                      'roll': (states['roll'], state_times),
                       'eclipse': False,
                       'pf0tank2t': 22 + 14. / 17. * (T0s[0] - 22.0),
-                      'pftank2t': T0s[0], 
-                      'roll': self.roll}
+                      'pftank2t': T0s[0]}
 
         return init_comps
 
-    def _get_states1(self, start, stop, pitch1, **stateskw):
-        states = [(start.secs, stop.secs, pitch1)]
-        names = ('tstart', 'tstop', 'pitch')
+    def _get_states1(self, start, stop, pitch1, roll=None, **stateskw):
+
+        if roll is None:
+            roll = self.roll
+
+        states = [(start.secs, stop.secs, pitch1, roll)]
+        names = ('tstart', 'tstop', 'pitch', 'roll')
         return np.rec.fromrecords(states, names=names)
 
 
@@ -237,16 +247,16 @@ class ConstraintTcylaft6(ConstraintModel):
 
         state_times = np.array([states['tstart'], states['tstop']])
         init_comps = {'pitch': (states['pitch'], state_times),
+                      'roll': (states['roll'], state_times),
                       'eclipse': False,
                       'tcylaft6_0': T0s[0],
-                      'tcylaft6': T0s[0], 
-                      'roll': self.roll}
+                      'tcylaft6': T0s[0]}
 
         return init_comps
 
-    def _get_states1(self, start, stop, pitch1, **stateskw):
-        states = [(start.secs, stop.secs, pitch1)]
-        names = ('tstart', 'tstop', 'pitch')
+    def _get_states1(self, start, stop, pitch1, roll=None **stateskw):
+        states = [(start.secs, stop.secs, pitch1, roll)]
+        names = ('tstart', 'tstop', 'pitch', 'roll')
         return np.rec.fromrecords(states, names=names)
 
 
@@ -301,7 +311,7 @@ class ConstraintPSMC(ConstraintModel):
         return init_comps
 
     def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
-                     clocking=1, simpos=75000, **stateskw):
+                     clocking=1, simpos=75000, roll=None, **stateskw):
 
         if ccd_count is None:
             ccd_count = self.n_ccd
@@ -309,10 +319,13 @@ class ConstraintPSMC(ConstraintModel):
         if fep_count is None:
             fep_count = ccd_count
 
+        if roll is None:
+            roll = self.roll
+
         states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
-                   pitch1, simpos)]
+                   pitch1, simpos, roll)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
-                 'clocking', 'pitch', 'simpos')
+                 'clocking', 'pitch', 'simpos', 'roll')
         return np.rec.fromrecords(states, names=names)
 
 
