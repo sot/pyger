@@ -254,7 +254,7 @@ class ConstraintTcylaft6(ConstraintModel):
 
         return init_comps
 
-    def _get_states1(self, start, stop, pitch1, roll=None **stateskw):
+    def _get_states1(self, start, stop, pitch1, roll=None, **stateskw):
         states = [(start.secs, stop.secs, pitch1, roll)]
         names = ('tstart', 'tstop', 'pitch', 'roll')
         return np.rec.fromrecords(states, names=names)
