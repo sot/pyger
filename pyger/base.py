@@ -479,8 +479,6 @@ class ConstraintModel(object):
 
             return dur_delta
 
-
-
         # Find the indices to the appropriate inital hot pitch values, and random cool pitch 
         # values 
         hot_pitch_ind = self.find_long_hot_pitch_dwells(msid)
@@ -488,45 +486,49 @@ class ConstraintModel(object):
 
         msid_ind = self.msids.index(msid)
 
-        logger.info('{0} - {1}: simulating {3} cooldown dwells for each of the {2} hot dwells'\
-                     .format(msid, self.name.upper(), len(hot_pitch_ind), len(dwell2_pitch_ind)))
-        logger.info(('Using a hot dwell temperature ratio of {0} to determine cooldown dwell' + 
-                       'starting conditions').format(hot_dwell_temp_ratio))
 
-        dwells2 = []
-        for j, i_hot in enumerate(hot_pitch_ind):
-            logger.info('{0}: simulating cooldown dwells for hot dwell {1} of {2}'\
-                        .format(self.name.upper(), j + 1, len(hot_pitch_ind)))
+        if len(hot_pitch_ind) > 0:
 
-            T_dwell2_0, dur_delta = calculate_init_data(self, msid_ind, i_hot, hot_dwell_temp_ratio)
+            logger.info('{0} - {1}: simulating {3} cooldown dwells for each of the {2} hot dwells'\
+                         .format(msid, self.name.upper(), len(hot_pitch_ind), len(dwell2_pitch_ind)))
+            logger.info(('Using a hot dwell temperature ratio of {0} to determine cooldown dwell' + 
+                           'starting conditions').format(hot_dwell_temp_ratio))
 
-            if match_cool_time is True:
-                dur_delta = clip_dwell1_time(self, msid_ind, i_hot, T_cool_ratio, dur_delta)
+            dwells2 = []
+            for j, i_hot in enumerate(hot_pitch_ind):
+                logger.info('{0}: simulating cooldown dwells for hot dwell {1} of {2}'\
+                            .format(self.name.upper(), j + 1, len(hot_pitch_ind)))
 
-            dwell2_pitch_set = self.dwells1['pitch'][dwell2_pitch_ind]
+                T_dwell2_0, dur_delta = calculate_init_data(self, msid_ind, i_hot, hot_dwell_temp_ratio)
 
-            t_cool_set = []
-            for cool_pitch in dwell2_pitch_set:
-                states2 = self._get_states1(start, stop, cool_pitch, **statekw)
-                Ts = self._calc_model(states2, times, T_dwell2_0)
-                t_cool, T_cool = calc_cooldown_times(self, i_hot, times, Ts, msid_ind, T_cool_ratio, T_cool_temp)
-                t_cool_set.append(t_cool)
+                if match_cool_time is True:
+                    dur_delta = clip_dwell1_time(self, msid_ind, i_hot, T_cool_ratio, dur_delta)
 
-            dwell1duration = self.dwells1['duration'][i_hot]
-            dwell2_case = (i_hot, self.dwells1['pitch'][i_hot], msid, dur_delta, dwell1duration,
-                           self.dwells1['T0s'][i_hot], T_dwell2_0, dwell2_pitch_set, 
-                           np.array(t_cool_set), T_cool, self.start.date, DateTime(start).date)
+                dwell2_pitch_set = self.dwells1['pitch'][dwell2_pitch_ind]
 
-            dwells2.append(dwell2_case)
+                t_cool_set = []
+                for cool_pitch in dwell2_pitch_set:
+                    states2 = self._get_states1(start, stop, cool_pitch, **statekw)
+                    Ts = self._calc_model(states2, times, T_dwell2_0)
+                    t_cool, T_cool = calc_cooldown_times(self, i_hot, times, Ts, msid_ind, T_cool_ratio, T_cool_temp)
+                    t_cool_set.append(t_cool)
+
+                dwell1duration = self.dwells1['duration'][i_hot]
+                dwell2_case = (i_hot, self.dwells1['pitch'][i_hot], msid, dur_delta, dwell1duration,
+                               self.dwells1['T0s'][i_hot], T_dwell2_0, dwell2_pitch_set, 
+                               np.array(t_cool_set), T_cool, self.start.date, DateTime(start).date)
+
+                dwells2.append(dwell2_case)
         
-        # Bogus data intended to show zero required cooling time (because no limiting condition
-        # was found). This is a bit of a hack, and better solutions will be considered in the
-        # future. This helps to avoid errors when automating pyger data generation.
-        limits = np.array([1000,] * len(self.msids))
-        dwell2_pitch_set = np.array(self.dwells1['pitch'][dwell2_pitch_ind])
-        zerostart = np.array([np.nan,] * len(self.msids))
-        allnantime = np.array((np.nan,) * len(dwell2_pitch_ind))
-        if len(dwells2) == 0:
+        else:
+            logger.info(('{0} - {1}: No hot pitch dwells found to seed cooldown dwells').format(msid, self.name.upper()))
+            # Bogus data intended to show zero required cooling time (because no limiting condition
+            # was found). This is a bit of a hack, and better solutions will be considered in the
+            # future. This helps to avoid errors when automating pyger data generation.
+            limits = np.array([1000,] * len(self.msids))
+            dwell2_pitch_set = np.array(self.dwells1['pitch'][dwell2_pitch_ind])
+            zerostart = np.array([np.nan,] * len(self.msids))
+            allnantime = np.array((np.nan,) * len(dwell2_pitch_ind))
             dwells2 = [(-1, 45, 'none', self.max_dwell_ksec * 1000, self.max_dwell_ksec * 1000, 
                          zerostart, limits, dwell2_pitch_set, allnantime, 0, self.start.date, DateTime(start).date),
                         (-2, 169, 'none', self.max_dwell_ksec * 1000, self.max_dwell_ksec * 1000, 
