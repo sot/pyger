@@ -584,13 +584,21 @@ def calc_dwell2_cool_stats(dwell2_case):
 
     dwell2_pitches = dwell2_case['dwell2_pitch_set'][0] # Each set is identical
     dwell2_times = dwell2_case['dwell2_times'].swapaxes(0,1)
-    coolstats = []
-    for timeset, pitch in zip(dwell2_times, dwell2_pitches):
-        t = np.sort(timeset)
-        coolstats.append((pitch, 
-                          t[int(len(t) * 0.1)],
-                          t[int(len(t) * 0.5)],
-                          t[int(len(t) * 0.9)]))
+
+    if (len(dwell2_times) > 0) and ('none' not in dwell2_case['msid']):
+      coolstats = []
+      for timeset, pitch in zip(dwell2_times, dwell2_pitches):
+          t = np.sort(timeset)
+          coolstats.append((pitch, 
+                            t[int(len(t) * 0.1)],
+                            t[int(len(t) * 0.5)],
+                            t[int(len(t) * 0.9)]))
+    else:
+      logger.info(('No cooldown calculations performed, tstart={}').format(dwell2_case['dwell1_start']))
+      # print('No cooldown calculations performed, tstart={}'.format(dwell2_case['dwell1_start']))
+
+      coolstats = [[None, None, None, None], [None, None, None, None]]
+
 
     dtype = np.dtype([('pitch', np.float64),
                       ('perc10', np.float64),

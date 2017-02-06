@@ -173,17 +173,8 @@ def get_sim_data(start, stop, n_days, sim_start_times, sim_stop_times, model):
     for i, sim_start, sim_stop in zip(count(), sim_start_times, sim_stop_times):
         sim_states_mask = (states['tstop'] > sim_start) & (states['tstart'] < sim_stop)
 
-        try:
-            # This currently assumes all fetched values are temperatures.
-            T0s = dict((x, dats[x].vals[start_ind_telem[i]] - 273.15) for x in msids)
-            T1s = dict((x, dats[x].vals[stop_ind_telem[i]] - 273.15) for x in msids)
-        except:
-            import readline # optional, will allow Up/Down/History in the console
-            import code
-            vars = globals().copy()
-            vars.update(locals())
-            shell = code.InteractiveConsole(vars)
-            shell.interact()
+        T0s = dict((x, dats[x].vals[start_ind_telem[i]] - 273.15) for x in msids)
+        T1s = dict((x, dats[x].vals[stop_ind_telem[i]] - 273.15) for x in msids)
 
         out_states = []
 
