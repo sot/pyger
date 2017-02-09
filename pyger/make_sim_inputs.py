@@ -3,7 +3,7 @@
 import os
 
 from itertools import count
-import cPickle as pickle
+import pickle as pickle
 import json
 import numpy as np
 
@@ -52,7 +52,7 @@ def make_sim_inputs(start=None, stop=None, sim_file='sim_inputs.pkl', n_days=3, 
     constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
 
     sim_inputs = {}
-    for name, model in constraint_models.items():
+    for name, model in list(constraint_models.items()):
         logger.info('  Assembling simulation propagation data for model: {0}'.format(name))
 
         sim_data = get_sim_data(start, stop, n_days, sim_start_times, sim_stop_times, model)

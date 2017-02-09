@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import matplotlib.pyplot as plt
-import cPickle as pickle
+import pickle as pickle
 
 import pyger
 
@@ -37,7 +37,7 @@ def plot_constraints(constraints):
              color=plotinfo['fgcolor'])
 
     # Determine individual plot height
-    numplots = len(constraints.keys())
+    numplots = len(list(constraints.keys()))
     plotheight = ((1 - plotinfo['bottom'] -
                   (1 - plotinfo['top']) - plotinfo['hspace'] * (numplots - 1))
                   / float(numplots))
@@ -86,13 +86,13 @@ def plot_constraints(constraints):
                     constraints[key].max_dwell_ksec * 1.05)
 
     outfile = 'test_plot_constraints_{}.png'.format(pyger.__version__)
-    print('\nSaving plots to {}'.format(outfile))
+    print(('\nSaving plots to {}'.format(outfile)))
     fig.savefig(outfile)
 
 
 def runtest():
     sim_inputs = pickle.load(open('sim_inputs.pkl'))
-    allmodels = sim_inputs.keys()
+    allmodels = list(sim_inputs.keys())
     constraints = pyger.calc_constraints(start='2013:050', max_dwell_ksec=400,
                                          constraint_models=tuple(allmodels))
     plot_constraints(constraints)
@@ -100,6 +100,6 @@ def runtest():
 
 if __name__ == '__main__':
     print('******* Running test_plot_constraints *********')
-    print('Pyger module file is {}\n'.format(pyger.__file__))
+    print(('Pyger module file is {}\n'.format(pyger.__file__)))
 
     runtest()

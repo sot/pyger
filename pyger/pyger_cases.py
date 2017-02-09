@@ -5,10 +5,10 @@ import csv
 import os
 
 from Chandra.Time import DateTime
-import pyger
+from . import pyger
 try:
     import pandas as pd
-except Exception, e:
+except Exception as e:
     print('Pandas not available so pyger.PostPyger() is not available.')
 
 
@@ -16,9 +16,9 @@ def read_cases(csv_casefile):
     cases = []
     with open(csv_casefile,'r') as f:
         reader = csv.reader(f)
-        headers = reader.next()
+        headers = next(reader)
         for row in reader:
-            cases.append(dict(zip(headers,row)))
+            cases.append(dict(list(zip(headers,row))))
     return cases
 
 
@@ -29,7 +29,7 @@ def run_pyger_cases(cases, savedwell1=False):
         models = (case['constraint_model'],)
         msids = (case['msid'].lower(),)
         
-        if 'dh_heater' in case.keys():
+        if 'dh_heater' in list(case.keys()):
             if 'true' in case['dh_heater'].lower():
                 dh_heater = True 
                 dh = 'ON'
@@ -38,7 +38,7 @@ def run_pyger_cases(cases, savedwell1=False):
                 dh = 'OFF'
 
         coolpitchrange = None
-        if 'cool_pitch_min' in case.keys():
+        if 'cool_pitch_min' in list(case.keys()):
             if 'none' not in case['cool_pitch_min'].lower():
                 coolpitchrange = (int(case['cool_pitch_min']), int(case['cool_pitch_max']))
             
@@ -59,10 +59,10 @@ def run_pyger_cases(cases, savedwell1=False):
                                               max_dwell_ksec=float(case['max_dwell_ksec']),
                                               constraint_models=models)
         if savedwell1:
-            nccd = unicode(int(case['n_ccd_dwell1']))
+            nccd = str(int(case['n_ccd_dwell1']))
             filename = case['filename'] + '_dwell1.pkl'
             pyger.save_pyger_pickle(constraints1, filename)
-            print('Saving to {0}'.format(case['filename'] + '_dwell1.pkl'))
+            print(('Saving to {0}'.format(case['filename'] + '_dwell1.pkl')))
 
         constraints2, coolstats, hotstats = pyger.calc_constraints2(
                                                     constraints1,
@@ -77,10 +77,10 @@ def run_pyger_cases(cases, savedwell1=False):
                                                     n_ccd=int(case['n_ccd_dwell2']),
                                                     dh_heater=dh_heater)
         
-        nccd = unicode(int(case['n_ccd_dwell2']))
+        nccd = str(int(case['n_ccd_dwell2']))
         filename = case['filename'] + '_dwell2.pkl'
         pickle.dump((constraints2, coolstats, hotstats), open(filename,'w'), protocol=2)
-        print('Saving to {0}'.format(filename))
+        print(('Saving to {0}'.format(filename)))
 
 
 class PostPyger(object):
@@ -99,13 +99,13 @@ class PostPyger(object):
         self.pickledir = pickledir
         self.dates = np.array([case['start'] for case in cases])
         self.date_set = set(self.dates)
-        self.pitch_set = range(47,171,1)
+        self.pitch_set = list(range(47,171,1))
         
         panel_dict= {}
         for case in self.cases:
             frame = self.get_case_frame(case)
             panel_dict[case['msid']] = frame
-            print('Imported info for {0}'.format(case['msid']))
+            print(('Imported info for {0}'.format(case['msid'])))
                   
         self.constraint_panel = pd.Panel(panel_dict)
         self.calc_stats()

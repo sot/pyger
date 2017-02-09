@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import cPickle as pickle
+import pickle as pickle
 from matplotlib.ticker import AutoMinorLocator
 import numpy as np
 
@@ -79,8 +79,8 @@ def plot_cooldown(constraints2, coolstats, hotstats, model, msid, limit, filenam
         ax.set_ylim(ylim)
         ax.yaxis.set_minor_locator(minorLocator)
 
-        ax.set_xticks(range(45,175,10))
-        ax.set_xticklabels(range(45,175,10), fontsize=20)
+        ax.set_xticks(list(range(45,175,10)))
+        ax.set_xticklabels(list(range(45,175,10)), fontsize=20)
         ax.xaxis.set_minor_locator(minorLocator)
         ax.set_xlim(45, 170)
         ax.grid(which='both')

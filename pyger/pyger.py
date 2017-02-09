@@ -4,7 +4,7 @@ Calculate Chandra dwell times given thermal constraints
 import sys
 import os
 import json
-import cPickle as pickle
+import pickle as pickle
 import re
 
 import numpy as np
@@ -62,7 +62,7 @@ def save_pyger_pickle(constraints, filename):
         if isinstance(constraints[name], np.core.records.recarray):
             all_pickle_data.update({name:constraints[name]})
         else:
-            for key in constraints[name].__dict__.keys():
+            for key in list(constraints[name].__dict__.keys()):
                 if key in pickleable:
                     if key == 'start':
                         pickle_data.update({key:constraints[name].__dict__[key].secs})
@@ -88,7 +88,7 @@ def load_pyger_pickle(filename):
 
     rawdata = pickle.load(open(filename,'r'))
     pyger_compatible_data = {}
-    for name in rawdata.keys():
+    for name in list(rawdata.keys()):
         constraint = saved_pyger_data(rawdata[name])
         pyger_compatible_data.update({name:constraint})
 
@@ -456,7 +456,7 @@ def calc_constraints(start='2013:001',
                      '  Run "pyger make" or "pyger make --help".'.format(sim_file))
         sys.exit(1)
 
-    n_sim_inputs = len(sim_inputs[sim_inputs.keys()[0]])
+    n_sim_inputs = len(sim_inputs[list(sim_inputs.keys())[0]])
     i_sims = np.random.randint(n_sim_inputs, size=n_sim)
     pitches1 = np.random.uniform(min_pitch, max_pitch, size=n_sim)
     constraints = {}
@@ -582,7 +582,7 @@ def calc_constraints2(constraints,
             if msid in constraint.msids:
 
                 if n_ccd is None:
-                    if n_ccd in constraint.__dict__.keys():
+                    if n_ccd in list(constraint.__dict__.keys()):
                         n_ccd = constraint.n_ccd
                     else:
                         n_ccd = 6

@@ -21,7 +21,7 @@ def assemble_cases(options, n_sim, max_dwell_ksec, dwell_2_pitch_num, dates):
 
     newcases = []
     for date in dates:
-        for msid in options.keys():
+        for msid in list(options.keys()):
             lims = np.arange(
                 options[msid]['startlim'],
                 options[msid]['stoplim'] +
@@ -29,14 +29,14 @@ def assemble_cases(options, n_sim, max_dwell_ksec, dwell_2_pitch_num, dates):
                 options[msid]['limstep'])
             for lim in lims:
                 if options[msid]['sameccd']:
-                    nccds = zip(options[msid]['nccd1'], options[msid]['nccd1'])
+                    nccds = list(zip(options[msid]['nccd1'], options[msid]['nccd1']))
                 else:
                     nccds = list(
                         itertools.product(
                             options[msid]['nccd1'],
                             options[msid]['nccd2']))
 
-                if 'cool_pitch_min' in options[msid].keys():
+                if 'cool_pitch_min' in list(options[msid].keys()):
                     coolpitchmin = options[msid]['cool_pitch_min']
                     coolpitchmax = options[msid]['cool_pitch_max']
                 else:
@@ -70,7 +70,7 @@ def assemble_cases(options, n_sim, max_dwell_ksec, dwell_2_pitch_num, dates):
 def write_cases(newcases, filename):
     fid = open(filename, 'w')
 
-    header = newcases[0].keys()
+    header = list(newcases[0].keys())
 
     # Write Header
     for name in header[:-1]:
@@ -88,7 +88,7 @@ def write_cases(newcases, filename):
 
 def chunks(listofstuff, n):
     """Yield successive n-sized chunks from l."""
-    for i in xrange(0, len(listofstuff), n):
+    for i in range(0, len(listofstuff), n):
         yield listofstuff[i:i + n]
 
 
@@ -155,7 +155,7 @@ def get_msid_plot_info(cases):
         'PLINE': ''}
     colors = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3',
               '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3', '#444444']
-    limits = dict(zip(msids, [999] * len(msids)))
+    limits = dict(list(zip(msids, [999] * len(msids))))
     for msid in msids:
         if msid == 'PLINE':
             limits[msid] = 'See Table'
@@ -218,13 +218,13 @@ def gen_composite_plot(
         line_handles.append(leg)
         line_labels.append('{} ({}{})'.format(msid, limits[msid], units[msid]))
 
-    ax.set_yticks(range(0, maxy + 50000, 50000))
-    ax.set_yticklabels(range(0, maxy / 1000 + 50, 50), fontsize=20)
+    ax.set_yticks(list(range(0, maxy + 50000, 50000)))
+    ax.set_yticklabels(list(range(0, maxy / 1000 + 50, 50)), fontsize=20)
     ax.set_ylabel('Dwell Time (Kiloseconds)', fontsize=24)
     ax.set_ylim(0, maxy)
 
-    ax.set_xticks(range(40, 180, 10))
-    ax.set_xticklabels(range(40, 180, 10), fontsize=20)
+    ax.set_xticks(list(range(40, 180, 10)))
+    ax.set_xticklabels(list(range(40, 180, 10)), fontsize=20)
     ax.set_xlabel('Dwell Pitch', fontsize=24)
     ax.set_xlim(47, 170)
 
@@ -274,7 +274,7 @@ def gen_composite_plot(
         if '1pdeaat' in case['msid'].lower():
             nccd1 = case['n_ccd_dwell1']
             nccd2 = case['n_ccd_dwell2']
-            if 'true' in unicode(case['dh_heater']).lower():
+            if 'true' in str(case['dh_heater']).lower():
                 dh = 'ON'
             else:
                 dh = 'OFF'
