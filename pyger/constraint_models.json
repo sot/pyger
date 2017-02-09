@@ -6,7 +6,8 @@
             "fep_count", 
             "clocking", 
             "vid_board",
-            "simpos"
+            "simpos",
+            "roll"
         ], 
         "msids": [
             "1dpamzt" 
@@ -19,7 +20,8 @@
             "fep_count", 
             "clocking", 
             "vid_board",
-            "simpos"
+            "simpos",
+            "roll"
         ], 
         "msids": [
             "1deamzt" 
@@ -27,7 +29,8 @@
     }, 
     "tank": {
         "state_cols": [
-            "pitch" 
+            "pitch" ,
+            "roll"
         ], 
         "msids": [
             "pftank2t" 
@@ -43,7 +46,8 @@
     }, 
     "tcylaft6": {
         "state_cols": [
-            "pitch" 
+            "pitch" ,
+            "roll"
         ], 
         "msids": [
             "tcylaft6" 
@@ -64,7 +68,8 @@
             "fep_count",
             "clocking", 
             "vid_board",
-            "simpos"
+            "simpos",
+            "roll"
         ], 
         "msids": [
             "1pdeaat"
