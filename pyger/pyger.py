@@ -4,7 +4,7 @@ Calculate Chandra dwell times given thermal constraints
 import sys
 import os
 import json
-import pickle as pickle
+import pickle
 import re
 
 import numpy as np
@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 # import Ska.Numpy
 from Chandra.Time import DateTime
-import asciitable
+# import asciitable
 import xija
 
 from . import clogging
@@ -69,7 +69,7 @@ def save_pyger_pickle(constraints, filename):
                     else:
                         pickle_data.update({key:constraints[name].__dict__[key]})
             all_pickle_data.update({name:pickle_data})
-    pickle.dump(all_pickle_data, open(filename,'w'), protocol=2)
+    pickle.dump(all_pickle_data, open(filename,'wb'), protocol=2)
 
 
 def load_pyger_pickle(filename):
@@ -86,7 +86,7 @@ def load_pyger_pickle(filename):
             for key in pickled_constraint:
                 self.__dict__.update({key:pickled_constraint[key]})
 
-    rawdata = pickle.load(open(filename,'r'))
+    rawdata = pickle.load(open(filename,'rb'))
     pyger_compatible_data = {}
     for name in list(rawdata.keys()):
         constraint = saved_pyger_data(rawdata[name])
@@ -450,7 +450,7 @@ def calc_constraints(start='2013:001',
     stop = DateTime(start.secs + max_dwell_ksec * 1000)
     times = np.arange(start.secs, stop.secs, dt)
     try:
-        sim_inputs = pickle.load(open(sim_file))
+        sim_inputs = pickle.load(open(sim_file, 'rb'))
     except IOError:
         logger.error('ERROR: simulation inputs file "{0}" not found.'
                      '  Run "pyger make" or "pyger make --help".'.format(sim_file))

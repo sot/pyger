@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import csv
 import os
+import h5py
 
 from Chandra.Time import DateTime
 from . import pyger
@@ -39,7 +40,7 @@ def run_pyger_cases(cases, savedwell1=False):
 
         coolpitchrange = None
         if 'cool_pitch_min' in list(case.keys()):
-            if 'none' not in case['cool_pitch_min'].lower():
+            if 'none' not in str(case['cool_pitch_min']).lower():
                 coolpitchrange = (int(case['cool_pitch_min']), int(case['cool_pitch_max']))
             
 
@@ -126,21 +127,28 @@ class PostPyger(object):
      
 
     def get_case_frame(self, case):
-        filename = os.path.join(self.pickledir, (case['filename'] + '_dwell2.pkl'))
-        data, coolstats, hotstats = pickle.load(open(filename,'r'))
 
         msid = case['msid'].lower()
         model = case['constraint_model']
         max_dwell_sec = float(case['max_dwell_ksec'])*1000
 
-        if np.size(hotstats[msid].pitch) > 0:
+        # filename = os.path.join(self.pickledir, (case['filename'] + '_dwell2.pkl'))
+        # data, coolstats, hotstats = pickle.load(open(filename,'rb'))
+
+        filename = os.path.join(self.pickledir, (case['filename'] + '_dwell2.h5'))
+        with h5py.File(filename, 'r') as f:
+            hotstats = {msid: np.array(f['hot'])}
+            coolstats = {msid: np.array(f['cool'])}
+            data = {msid: np.array(f['data'])}
+
+        if np.size(hotstats[msid]['pitch']) > 0:
             
-            hot_max = np.interp(self.pitch_set, hotstats[msid].pitch,
-                                hotstats[msid].dwell1_duration, left=np.NaN, right=np.NaN)
-            hot90 = np.interp(self.pitch_set, hotstats[msid].pitch, 
-                                  hotstats[msid].dwell1_duration_delta, left=np.NaN, right=np.NaN)
+            hot_max = np.interp(self.pitch_set, hotstats[msid]['pitch'],
+                                hotstats[msid]['dwell1_duration'], left=np.NaN, right=np.NaN)
+            hot90 = np.interp(self.pitch_set, hotstats[msid]['pitch'], 
+                                  hotstats[msid]['dwell1_duration_delta'], left=np.NaN, right=np.NaN)
             hot_max[hot_max > max_dwell_sec*0.95] = np.NaN
-            cool90 = np.interp(self.pitch_set, coolstats[msid].pitch, coolstats[msid].perc90, 
+            cool90 = np.interp(self.pitch_set, coolstats[msid]['pitch'], coolstats[msid]['perc90'], 
                                left=np.NaN, right=np.NaN)
             cool90[np.isnan(cool90)] = max_dwell_sec
         else:
