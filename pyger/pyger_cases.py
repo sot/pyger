@@ -79,8 +79,23 @@ def run_pyger_cases(cases, savedwell1=False):
                                                     dh_heater=dh_heater)
         
         nccd = str(int(case['n_ccd_dwell2']))
-        filename = case['filename'] + '_dwell2.pkl'
-        pickle.dump((constraints2, coolstats, hotstats), open(filename,'w'), protocol=2)
+        # filename = case['filename'] + '_dwell2.pkl'
+        # pickle.dump((constraints2, coolstats, hotstats), open(filename,'wb'), protocol=2)
+
+        filename = case['filename'] + '_dwell2.h5'
+        msid = case['msid'].lower()
+        with h5py.File(filename, 'w') as f:
+
+            hset = f.create_dataset('hot', (np.shape(hotstats[msid])), dtype=hotstats[msid].dtype)
+            cset = f.create_dataset('cool', (np.shape(coolstats[msid])), dtype=coolstats[msid].dtype)
+            dset = f.create_dataset('data', (np.shape(constraints2[msid])), dtype=constraints2[msid].dtype)
+
+            hset[...] = hotstats[msid]
+            cset[...] = coolstats[msid]
+            dset[...] = constraints2[msid]
+
+            f.flush()
+
         print(('Saving to {0}'.format(filename)))
 
 
