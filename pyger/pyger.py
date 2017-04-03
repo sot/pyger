@@ -307,7 +307,7 @@ class ConstraintPSMC(ConstraintModel):
                       'dpa_power': 0.0,
                       'eclipse': False,
                       'dh_heater':self.dh_heater, 
-                      'roll': self.roll}
+                      'roll': (states['roll'], state_times)}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
