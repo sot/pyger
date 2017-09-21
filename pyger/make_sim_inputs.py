@@ -1,3 +1,4 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 ''' Generate a set of simulation profiles from which starting conditions can be calculated.
 '''
 import os

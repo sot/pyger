@@ -1,3 +1,4 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 """Plot best-case constraints for 2012 in 2-month intervals"""
 import matplotlib.pyplot as plt
 
