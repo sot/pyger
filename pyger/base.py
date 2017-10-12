@@ -44,7 +44,7 @@ class ConstraintModel(object):
 
         """
 
-        for key, val in init_comps.items():
+        for key, val in list(init_comps.items()):
             if key in self.state_cols or key == 'sim_z':
                 model.comp[key].set_data(val[0], val[1])
             else:
@@ -97,7 +97,7 @@ class ConstraintModel(object):
             self.name.upper(), len(self.sim_inputs)))
         for sim_input in self.sim_inputs:
             states = sim_input['states']
-            state_cols = states[0].keys()
+            state_cols = list(states[0].keys())
             time_adj = start.secs - states[-1]['tstop']
             for state in states:
                 state['tstart'] += time_adj
@@ -277,7 +277,7 @@ class ConstraintModel(object):
 
         # Build a list of indices from 0 to the index representing "perc" of the total 
         # length of the array, i.e. 0..19 for an array 100 elements long 
-        ind = range(int(len(start_temps_transpose[0]) * perc))
+        ind = list(range(int(len(start_temps_transpose[0]) * perc)))
 
         # Get the first N indices in the sorted arrays of each msid. This represents the
         # lowest N starting values for each msid. N is the length of 'ind' 

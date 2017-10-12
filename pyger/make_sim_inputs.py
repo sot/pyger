@@ -4,9 +4,10 @@
 import os
 
 from itertools import count
-import cPickle as pickle
+import pickle as pickle
 import json
 import numpy as np
+import h5py
 
 import Ska.engarchive.fetch as fetch
 from Chandra.Time import DateTime
@@ -53,7 +54,7 @@ def make_sim_inputs(start=None, stop=None, sim_file='sim_inputs.pkl', n_days=3, 
     constraint_models = json.load(open(os.path.join(pkg_dir, 'constraint_models.json')))
 
     sim_inputs = {}
-    for name, model in constraint_models.items():
+    for name, model in list(constraint_models.items()):
         logger.info('  Assembling simulation propagation data for model: {0}'.format(name))
 
         sim_data = get_sim_data(start, stop, n_days, sim_start_times, sim_stop_times, model)
@@ -82,7 +83,7 @@ def get_states(start, stop, n_days, state_vals=['pitch']):
     prevent missing data problems.
     """
 
-    state_vals = [x.encode('ascii') for x in state_vals]
+    state_vals = [str(x) for x in state_vals]
     start_time = start.secs - 86400 * (n_days + 1)
     stop_time = stop.secs + 3600
     states = cmd_states.fetch_states(start_time, stop_time, state_vals)
@@ -199,7 +200,6 @@ def write_sim_inputs(sim_file, sim_inputs):
     """
     Write sim input data to a pickle file.
     """
-
     logger.info('  Writing simulation inputs to {0}'.format(sim_file))
-    with open(sim_file, 'w') as f:
-        pickle.dump(sim_inputs, f, protocol=-1)
+    with open(sim_file, 'wb') as f:
+        pickle.dump(sim_inputs, f)#, protocol=-1)

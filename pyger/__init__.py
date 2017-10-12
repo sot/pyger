@@ -85,7 +85,7 @@ def main(args=None):
     import inspect
     opt = get_options(args)
     func_args = inspect.getargspec(opt.func)[0]
-    opt_args = dict((k, v) for k, v in opt.__dict__.items()
+    opt_args = dict((k, v) for k, v in list(opt.__dict__.items())
                     if (k in func_args and v is not None))
     if opt.func == calc_constraints:
         import matplotlib

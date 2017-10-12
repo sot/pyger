@@ -5,7 +5,7 @@ Calculate Chandra dwell times given thermal constraints
 import sys
 import os
 import json
-import cPickle as pickle
+import pickle
 import re
 
 import numpy as np
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 # import Ska.Numpy
 from Chandra.Time import DateTime
-import asciitable
+# import asciitable
 import xija
 
 from . import clogging
@@ -63,14 +63,14 @@ def save_pyger_pickle(constraints, filename):
         if isinstance(constraints[name], np.core.records.recarray):
             all_pickle_data.update({name:constraints[name]})
         else:
-            for key in constraints[name].__dict__.keys():
+            for key in list(constraints[name].__dict__.keys()):
                 if key in pickleable:
                     if key == 'start':
                         pickle_data.update({key:constraints[name].__dict__[key].secs})
                     else:
                         pickle_data.update({key:constraints[name].__dict__[key]})
             all_pickle_data.update({name:pickle_data})
-    pickle.dump(all_pickle_data, open(filename,'w'), protocol=2)
+    pickle.dump(all_pickle_data, open(filename,'wb'), protocol=2)
 
 
 def load_pyger_pickle(filename):
@@ -87,9 +87,9 @@ def load_pyger_pickle(filename):
             for key in pickled_constraint:
                 self.__dict__.update({key:pickled_constraint[key]})
 
-    rawdata = pickle.load(open(filename,'r'))
+    rawdata = pickle.load(open(filename,'rb'))
     pyger_compatible_data = {}
-    for name in rawdata.keys():
+    for name in list(rawdata.keys()):
         constraint = saved_pyger_data(rawdata[name])
         pyger_compatible_data.update({name:constraint})
 
@@ -308,7 +308,7 @@ class ConstraintPSMC(ConstraintModel):
                       'dpa_power': 0.0,
                       'eclipse': False,
                       'dh_heater':self.dh_heater, 
-                      'roll': self.roll}
+                      'roll': (states['roll'], state_times)}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch'):
             init_comps[name] = (states[name], state_times)
@@ -451,13 +451,13 @@ def calc_constraints(start='2013:001',
     stop = DateTime(start.secs + max_dwell_ksec * 1000)
     times = np.arange(start.secs, stop.secs, dt)
     try:
-        sim_inputs = pickle.load(open(sim_file))
+        sim_inputs = pickle.load(open(sim_file, 'rb'))
     except IOError:
         logger.error('ERROR: simulation inputs file "{0}" not found.'
                      '  Run "pyger make" or "pyger make --help".'.format(sim_file))
         sys.exit(1)
 
-    n_sim_inputs = len(sim_inputs[sim_inputs.keys()[0]])
+    n_sim_inputs = len(sim_inputs[list(sim_inputs.keys())[0]])
     i_sims = np.random.randint(n_sim_inputs, size=n_sim)
     pitches1 = np.random.uniform(min_pitch, max_pitch, size=n_sim)
     constraints = {}
@@ -583,7 +583,7 @@ def calc_constraints2(constraints,
             if msid in constraint.msids:
 
                 if n_ccd is None:
-                    if n_ccd in constraint.__dict__.keys():
+                    if n_ccd in list(constraint.__dict__.keys()):
                         n_ccd = constraint.n_ccd
                     else:
                         n_ccd = 6

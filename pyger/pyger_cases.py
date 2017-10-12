@@ -4,12 +4,13 @@ import numpy as np
 import pickle
 import csv
 import os
+import h5py
 
 from Chandra.Time import DateTime
-import pyger
+from . import pyger
 try:
     import pandas as pd
-except Exception, e:
+except Exception as e:
     print('Pandas not available so pyger.PostPyger() is not available.')
 
 
@@ -17,9 +18,9 @@ def read_cases(csv_casefile):
     cases = []
     with open(csv_casefile,'r') as f:
         reader = csv.reader(f)
-        headers = reader.next()
+        headers = next(reader)
         for row in reader:
-            cases.append(dict(zip(headers,row)))
+            cases.append(dict(list(zip(headers,row))))
     return cases
 
 
@@ -30,7 +31,7 @@ def run_pyger_cases(cases, savedwell1=False):
         models = (case['constraint_model'],)
         msids = (case['msid'].lower(),)
         
-        if 'dh_heater' in case.keys():
+        if 'dh_heater' in list(case.keys()):
             if 'true' in case['dh_heater'].lower():
                 dh_heater = True 
                 dh = 'ON'
@@ -39,8 +40,8 @@ def run_pyger_cases(cases, savedwell1=False):
                 dh = 'OFF'
 
         coolpitchrange = None
-        if 'cool_pitch_min' in case.keys():
-            if 'none' not in case['cool_pitch_min'].lower():
+        if 'cool_pitch_min' in list(case.keys()):
+            if 'none' not in str(case['cool_pitch_min']).lower():
                 coolpitchrange = (int(case['cool_pitch_min']), int(case['cool_pitch_max']))
             
 
@@ -60,10 +61,10 @@ def run_pyger_cases(cases, savedwell1=False):
                                               max_dwell_ksec=float(case['max_dwell_ksec']),
                                               constraint_models=models)
         if savedwell1:
-            nccd = unicode(int(case['n_ccd_dwell1']))
+            nccd = str(int(case['n_ccd_dwell1']))
             filename = case['filename'] + '_dwell1.pkl'
             pyger.save_pyger_pickle(constraints1, filename)
-            print('Saving to {0}'.format(case['filename'] + '_dwell1.pkl'))
+            print(('Saving to {0}'.format(case['filename'] + '_dwell1.pkl')))
 
         constraints2, coolstats, hotstats = pyger.calc_constraints2(
                                                     constraints1,
@@ -78,10 +79,25 @@ def run_pyger_cases(cases, savedwell1=False):
                                                     n_ccd=int(case['n_ccd_dwell2']),
                                                     dh_heater=dh_heater)
         
-        nccd = unicode(int(case['n_ccd_dwell2']))
-        filename = case['filename'] + '_dwell2.pkl'
-        pickle.dump((constraints2, coolstats, hotstats), open(filename,'w'), protocol=2)
-        print('Saving to {0}'.format(filename))
+        nccd = str(int(case['n_ccd_dwell2']))
+        # filename = case['filename'] + '_dwell2.pkl'
+        # pickle.dump((constraints2, coolstats, hotstats), open(filename,'wb'), protocol=2)
+
+        filename = case['filename'] + '_dwell2.h5'
+        msid = case['msid'].lower()
+        with h5py.File(filename, 'w') as f:
+
+            hset = f.create_dataset('hot', (np.shape(hotstats[msid])), dtype=hotstats[msid].dtype)
+            cset = f.create_dataset('cool', (np.shape(coolstats[msid])), dtype=coolstats[msid].dtype)
+            dset = f.create_dataset('data', (np.shape(constraints2[msid])), dtype=constraints2[msid].dtype)
+
+            hset[...] = hotstats[msid]
+            cset[...] = coolstats[msid]
+            dset[...] = constraints2[msid]
+
+            f.flush()
+
+        print(('Saving to {0}'.format(filename)))
 
 
 class PostPyger(object):
@@ -100,13 +116,13 @@ class PostPyger(object):
         self.pickledir = pickledir
         self.dates = np.array([case['start'] for case in cases])
         self.date_set = set(self.dates)
-        self.pitch_set = range(47,171,1)
+        self.pitch_set = list(range(47,171,1))
         
         panel_dict= {}
         for case in self.cases:
             frame = self.get_case_frame(case)
             panel_dict[case['msid']] = frame
-            print('Imported info for {0}'.format(case['msid']))
+            print(('Imported info for {0}'.format(case['msid'])))
                   
         self.constraint_panel = pd.Panel(panel_dict)
         self.calc_stats()
@@ -127,21 +143,28 @@ class PostPyger(object):
      
 
     def get_case_frame(self, case):
-        filename = os.path.join(self.pickledir, (case['filename'] + '_dwell2.pkl'))
-        data, coolstats, hotstats = pickle.load(open(filename,'r'))
 
         msid = case['msid'].lower()
         model = case['constraint_model']
         max_dwell_sec = float(case['max_dwell_ksec'])*1000
 
-        if np.size(hotstats[msid].pitch) > 0:
+        # filename = os.path.join(self.pickledir, (case['filename'] + '_dwell2.pkl'))
+        # data, coolstats, hotstats = pickle.load(open(filename,'rb'))
+
+        filename = os.path.join(self.pickledir, (case['filename'] + '_dwell2.h5'))
+        with h5py.File(filename, 'r') as f:
+            hotstats = {msid: np.array(f['hot'])}
+            coolstats = {msid: np.array(f['cool'])}
+            data = {msid: np.array(f['data'])}
+
+        if np.size(hotstats[msid]['pitch']) > 0:
             
-            hot_max = np.interp(self.pitch_set, hotstats[msid].pitch,
-                                hotstats[msid].dwell1_duration, left=np.NaN, right=np.NaN)
-            hot90 = np.interp(self.pitch_set, hotstats[msid].pitch, 
-                                  hotstats[msid].dwell1_duration_delta, left=np.NaN, right=np.NaN)
+            hot_max = np.interp(self.pitch_set, hotstats[msid]['pitch'],
+                                hotstats[msid]['dwell1_duration'], left=np.NaN, right=np.NaN)
+            hot90 = np.interp(self.pitch_set, hotstats[msid]['pitch'], 
+                                  hotstats[msid]['dwell1_duration_delta'], left=np.NaN, right=np.NaN)
             hot_max[hot_max > max_dwell_sec*0.95] = np.NaN
-            cool90 = np.interp(self.pitch_set, coolstats[msid].pitch, coolstats[msid].perc90, 
+            cool90 = np.interp(self.pitch_set, coolstats[msid]['pitch'], coolstats[msid]['perc90'], 
                                left=np.NaN, right=np.NaN)
             cool90[np.isnan(cool90)] = max_dwell_sec
         else:
