@@ -348,6 +348,7 @@ class ConstraintACISFP(ConstraintModel):
 
         state_times = np.array([states['tstart'], states['tstop']])
         init_comps = {'sim_z': (states['simpos'], state_times),
+                      'roll': (states['roll'], state_times),
                       'eclipse': False,
                       'fptemp_11': T0s[0],
                       '1cbat':-55.0,
