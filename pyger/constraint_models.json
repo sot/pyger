@@ -82,7 +82,8 @@
             "fep_count",
             "clocking", 
             "vid_board",
-            "simpos"
+            "simpos",
+            "roll"
         ], 
         "msids": [
             "fptemp_11"
