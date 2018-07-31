@@ -111,6 +111,7 @@ class ConstraintDPA(ConstraintModel):
                       'roll': (states['roll'], state_times),
                       'eclipse': False,
                       '1dpamzt': T0s[0],
+                      'dpa0': T0s[0],
                       'dpa_power': 0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch', 'roll'):
