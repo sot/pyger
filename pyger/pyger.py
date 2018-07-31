@@ -112,6 +112,7 @@ class ConstraintDPA(ConstraintModel):
                       'roll': (states['roll'], state_times),
                       'eclipse': False,
                       '1dpamzt': T0s[0],
+                      'dpa0': T0s[0],
                       'dpa_power': 0.0}
 
         for name in ('ccd_count', 'fep_count', 'vid_board', 'clocking', 'pitch', 'roll'):
@@ -337,8 +338,9 @@ class ConstraintPSMC(ConstraintModel):
 
 
 class ConstraintACISFP(ConstraintModel):
-    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, dh_heater=True):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, n_ccd=6, dh_heater=True, roll=0.0):
         self.n_ccd = n_ccd
+        self.roll = roll
         self.dh_heater = dh_heater
         model_spec = os.path.join(pkg_dir, 'acisfp_spec.json')
         self.model_spec = json.load(open(model_spec, 'r'))
@@ -349,6 +351,7 @@ class ConstraintACISFP(ConstraintModel):
 
         state_times = np.array([states['tstart'], states['tstop']])
         init_comps = {'sim_z': (states['simpos'], state_times),
+                      'roll': (states['roll'], state_times),
                       'eclipse': False,
                       'fptemp_11': T0s[0],
                       '1cbat':-55.0,
@@ -369,7 +372,7 @@ class ConstraintACISFP(ConstraintModel):
         return init_comps
 
     def _get_states1(self, start, stop, pitch1, ccd_count=None, fep_count=None, vid_board=1,
-                     clocking=1, simpos=75000, **stateskw):
+                     clocking=1, simpos=75000, roll=None, **stateskw):
 
         if ccd_count is None:
             ccd_count = self.n_ccd
@@ -377,10 +380,13 @@ class ConstraintACISFP(ConstraintModel):
         if fep_count is None:
             fep_count = ccd_count
 
+        if roll is None:
+            roll = self.roll
+
         states = [(start.secs, stop.secs, ccd_count, fep_count, vid_board, clocking,
-                   pitch1, simpos)]
+                   pitch1, simpos, roll)]
         names = ('tstart', 'tstop', 'ccd_count', 'fep_count', 'vid_board',
-                 'clocking', 'pitch', 'simpos')
+                 'clocking', 'pitch', 'simpos', 'roll')
         return np.rec.fromrecords(states, names=names)
 
 
@@ -506,7 +512,8 @@ def calc_constraints(start='2013:001',
                                            limits={'fptemp_11': max_fptemp_11},
                                            max_dwell_ksec=max_dwell_ksec,
                                            n_ccd=n_ccd,
-                                           dh_heater=dh_heater)
+                                           dh_heater=dh_heater,
+                                           roll=roll)
 
 
     constraints_list = [constraints[x] for x in constraint_models]
