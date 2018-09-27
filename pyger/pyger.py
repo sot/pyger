@@ -226,7 +226,7 @@ class ConstraintFwdblkhd(ConstraintModel):
         state_times = np.array([states['tstart'], states['tstop']])
         init_comps = {'pitch': (states['pitch'], state_times),
                       'eclipse': False,
-                      '4rt700t_0': T0s[0],
+                      'oba0': T0s[0],
                       '4rt700t': T0s[0]}
 
         return init_comps
@@ -251,7 +251,7 @@ class ConstraintTcylaft6(ConstraintModel):
         init_comps = {'pitch': (states['pitch'], state_times),
                       'roll': (states['roll'], state_times),
                       'eclipse': False,
-                      'tcylaft6_0': T0s[0],
+                      'cc0': T0s[0],
                       'tcylaft6': T0s[0]}
 
         return init_comps
