@@ -154,6 +154,7 @@ class ConstraintDEA(ConstraintModel):
         init_comps = {'sim_z': (states['simpos'], state_times),
                       'roll': (states['roll'], state_times),
                       'eclipse': False,
+                      'dea0': T0s[0],
                       '1deamzt': T0s[0],
                       'dpa_power': 0.0}
 
