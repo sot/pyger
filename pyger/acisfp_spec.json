@@ -67,12 +67,12 @@
         {
             "class_name": "MaskBox",
             "init_args": [
-                "fptemp",
+                "fptemp_11",
                 -120.5,
                 -116.0
             ],
             "init_kwargs": {},
-            "name": "maskbox__fptemp"
+            "name": "maskbox__fptemp_11"
         },
         {
             "class_name": "Node",
@@ -80,10 +80,10 @@
                 "fptemp_11"
             ],
             "init_kwargs": {
-                "mask": "maskbox__fptemp",
-                "name": "fptemp"
+                "mask": "maskbox__fptemp_11",
+                "name": "fptemp_11"
             },
-            "name": "fptemp"
+            "name": "fptemp_11"
         },
         {
             "class_name": "CmdStatesData",
@@ -120,7 +120,7 @@
         {
             "class_name": "AcisDpaStatePower",
             "init_args": [
-                "fptemp"
+                "fptemp_11"
             ],
             "init_kwargs": {
                 "ccd_count": "ccd_count",
@@ -221,7 +221,7 @@
         {
             "class_name": "EarthHeat",
             "init_args": [
-                "fptemp"
+                "fptemp_11"
             ],
             "init_kwargs": {
                 "aoattqt1": "aoattqt1",
@@ -232,29 +232,29 @@
                 "orbitephem0_y": "orbitephem0_y",
                 "orbitephem0_z": "orbitephem0_z"
             },
-            "name": "earthheat__fptemp"
+            "name": "earthheat__fptemp_11"
         },
         {
             "class_name": "ThermostatHeater",
             "init_args": [
-                "fptemp"
+                "fptemp_11"
             ],
             "init_kwargs": {
                 "P": 0.1,
                 "T_set": -120.0
             },
-            "name": "thermostat_heat__fptemp"
+            "name": "thermostat_heat__fptemp_11"
         },
         {
             "class_name": "HeatSink",
             "init_args": [
-                "fptemp"
+                "fptemp_11"
             ],
             "init_kwargs": {
                 "T": -150.0,
                 "tau": 20.0
             },
-            "name": "heatsink__fptemp"
+            "name": "heatsink__fptemp_11"
         },
         {
             "class_name": "Node",
@@ -333,13 +333,13 @@
         {
             "class_name": "Coupling",
             "init_args": [
-                "fptemp",
+                "fptemp_11",
                 "sim_px"
             ],
             "init_kwargs": {
                 "tau": 50.0
             },
-            "name": "coupling__fptemp__sim_px"
+            "name": "coupling__fptemp_11__sim_px"
         },
         {
             "class_name": "Node",
@@ -354,13 +354,13 @@
         {
             "class_name": "Coupling",
             "init_args": [
-                "fptemp",
+                "fptemp_11",
                 "1cbat"
             ],
             "init_kwargs": {
                 "tau": 18
             },
-            "name": "coupling__fptemp__1cbat"
+            "name": "coupling__fptemp_11__1cbat"
         },
         {
             "class_name": "SolarHeatAcisCameraBody",
@@ -443,20 +443,20 @@
     "name": "acisfp",
     "pars": [
         {
-            "comp_name": "maskbox__fptemp",
+            "comp_name": "maskbox__fptemp_11",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "maskbox__fptemp__val0",
+            "full_name": "maskbox__fptemp_11__val0",
             "max": 1000,
             "min": -1000,
             "name": "val0",
             "val": -120.0
         },
         {
-            "comp_name": "maskbox__fptemp",
+            "comp_name": "maskbox__fptemp_11",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "maskbox__fptemp__val1",
+            "full_name": "maskbox__fptemp_11__val1",
             "max": 1000,
             "min": -1000,
             "name": "val1",
@@ -593,50 +593,50 @@
             "val": 71.22404229471228
         },
         {
-            "comp_name": "earthheat__fptemp",
+            "comp_name": "earthheat__fptemp_11",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "earthheat__fptemp__k",
+            "full_name": "earthheat__fptemp_11__k",
             "max": 20.0,
             "min": 0.0,
             "name": "k",
             "val": 7.570890863382298
         },
         {
-            "comp_name": "thermostat_heat__fptemp",
+            "comp_name": "thermostat_heat__fptemp_11",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "thermostat_heat__fptemp__P",
+            "full_name": "thermostat_heat__fptemp_11__P",
             "max": 3.0,
             "min": 0.0,
             "name": "P",
             "val": 0.5109834628343255
         },
         {
-            "comp_name": "thermostat_heat__fptemp",
+            "comp_name": "thermostat_heat__fptemp_11",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "thermostat_heat__fptemp__T_set",
+            "full_name": "thermostat_heat__fptemp_11__T_set",
             "max": -115.0,
             "min": -126.0,
             "name": "T_set",
             "val": -119.6200683570855
         },
         {
-            "comp_name": "heatsink__fptemp",
+            "comp_name": "heatsink__fptemp_11",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "heatsink__fptemp__T",
+            "full_name": "heatsink__fptemp_11__T",
             "max": -100.0,
             "min": -200.0,
             "name": "T",
             "val": -194.0118039255176
         },
         {
-            "comp_name": "heatsink__fptemp",
+            "comp_name": "heatsink__fptemp_11",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "heatsink__fptemp__tau",
+            "full_name": "heatsink__fptemp_11__tau",
             "max": 80.0,
             "min": 10.0,
             "name": "tau",
@@ -933,20 +933,20 @@
             "val": 2.5851791075255317
         },
         {
-            "comp_name": "coupling__fptemp__sim_px",
+            "comp_name": "coupling__fptemp_11__sim_px",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "coupling__fptemp__sim_px__tau",
+            "full_name": "coupling__fptemp_11__sim_px__tau",
             "max": 150.0,
             "min": 50.0,
             "name": "tau",
             "val": 140.74921449364072
         },
         {
-            "comp_name": "coupling__fptemp__1cbat",
+            "comp_name": "coupling__fptemp_11__1cbat",
             "fmt": "{:.4g}",
             "frozen": true,
-            "full_name": "coupling__fptemp__1cbat__tau",
+            "full_name": "coupling__fptemp_11__1cbat__tau",
             "max": 80.0,
             "min": 20.0,
             "name": "tau",
