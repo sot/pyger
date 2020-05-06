@@ -4,8 +4,9 @@ warnings.simplefilter('ignore')
 
 from .pyger import (calc_constraints, calc_constraints2, __version__, CtoF, ConstraintModel, 
                     ConstraintPSMC, ConstraintDPA, ConstraintDEA, ConstraintTank,
-                    ConstraintAca, ConstraintFwdblkhd, ConstraintACISFP, save_pyger_pickle,
-                    load_pyger_pickle, read_cases, run_pyger_cases, PostPyger)
+                    ConstraintAca, ConstraintFwdblkhd, ConstraintACISFP, ConstraintMUPS1B, 
+                    ConstraintMUPS2A, save_pyger_pickle, load_pyger_pickle, read_cases, 
+                    run_pyger_cases, PostPyger)
 
 from .make_sim_inputs import make_sim_inputs
 
@@ -64,6 +65,12 @@ def get_options(args=None):
     parser_sim.add_argument("--max-fptemp-11",
                             type=float,
                             help="FPTEMP_11 limit (degC)")
+    parser_sim.add_argument("--max-pm1thv2t",
+                            type=float,
+                            help="PM1THV2T planning limit (degF)")
+    parser_sim.add_argument("--max-pm2thv1t",
+                            type=float,
+                            help="PM2THV1T planning limit (degF)")
     parser_sim.add_argument("--n-ccd",
                             type=int,
                             help="Number of ACIS CCDs")

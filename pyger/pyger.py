@@ -391,6 +391,64 @@ class ConstraintACISFP(ConstraintModel):
         return np.rec.fromrecords(states, names=names)
 
 
+class ConstraintMUPS1B(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, roll=0.0):
+        model_spec = os.path.join(pkg_dir, 'pm1thv2t_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        self.roll = roll
+        ConstraintModel.__init__(self, 'mups1b', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'roll': (states['roll'], state_times),
+                      'eclipse': False,
+                      'mups0': T0s[0],
+                      'pm1thv2t': T0s[0]}
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, roll=None, **stateskw):
+
+        if roll is None:
+            roll = self.roll
+
+        states = [(start.secs, stop.secs, pitch1, roll)]
+        names = ('tstart', 'tstop', 'pitch', 'roll')
+        return np.rec.fromrecords(states, names=names)
+
+
+class ConstraintMUPS2A(ConstraintModel):
+    def __init__(self, sim_inputs, limits, max_dwell_ksec, roll=0.0):
+        model_spec = os.path.join(pkg_dir, 'pm2thv1t_spec.json')
+        self.model_spec = json.load(open(model_spec, 'r'))
+        self.roll = roll
+        ConstraintModel.__init__(self, 'mups2a', sim_inputs, limits,
+                                 max_dwell_ksec)
+
+    def _get_init_comps(self, T0s, states):
+
+        state_times = np.array([states['tstart'], states['tstop']])
+        init_comps = {'pitch': (states['pitch'], state_times),
+                      'roll': (states['roll'], state_times),
+                      'eclipse': False,
+                      'mups0': 390 + 5 * (T0s[0] - 75.0),
+                      'pm2thv1t': T0s[0]}
+
+        return init_comps
+
+    def _get_states1(self, start, stop, pitch1, roll=None, **stateskw):
+
+        if roll is None:
+            roll = self.roll
+
+        states = [(start.secs, stop.secs, pitch1, roll)]
+        names = ('tstart', 'tstop', 'pitch', 'roll')
+        return np.rec.fromrecords(states, names=names)
+
+
 def merge_dwells1(constraints):
     """Merge the dwells in the ``constraints`` list, finding the shortest from among the
     constraints.
@@ -417,6 +475,8 @@ def calc_constraints(start='2013:001',
                      max_aacccdpt=999.0,
                      max_4rt700t=999.0,
                      max_fptemp_11=999.0,
+                     max_pm1thv2t=999.0,
+                     max_pm2thv1t=999.0,
                      n_ccd=6,
                      roll=0.0,
                      dh_heater=True,
@@ -426,7 +486,7 @@ def calc_constraints(start='2013:001',
                      max_pitch=169,
                      bin_pitch=2,
                      constraint_models=('psmc', 'dpa', 'dea', 'tank', 'aca', 'fwdblkhd',
-                      'tcylaft6', 'acisfp')):
+                      'tcylaft6', 'acisfp', 'mups1b', 'mups2a')):
     """
     Calculate allowed dwell times coming out of perigee given a set of
     constraint models.
@@ -442,6 +502,8 @@ def calc_constraints(start='2013:001',
     :param max_aacccdpt: ACA CCD planning limit
     :param max_4rt700t: OBA forward bulkhead planning limit
     :param max_acisfp: ACIS Focal Plane limit
+    :param max_pm1thv2t: PM1THV2T planning limit
+    :param max_pm2thv1t: PM2THV1T planning limit
     :param n_ccd: number of ACIS CCDs being used
     :param roll: roll used for simulations
     :param max_dwell_ksec: maximum allowed dwell time (default=200 ksec)
@@ -450,7 +512,7 @@ def calc_constraints(start='2013:001',
     :param max_pitch: maximum pitch in simulations (default=169)
     :param bin_pitch: pitch bin size for calculating stats (default=2)
     :param constraint_models: constraint models, default=('psmc', 'dpa', 'dea', 'tank', 'aca',
-        'fwdblkhd', 'tcylaft6', 'acisfp')
+        'fwdblkhd', 'tcylaft6', 'acisfp', 'mups1b', 'mups2a')
 
     :returns: dict of computed constraint model objects
     """
@@ -515,7 +577,16 @@ def calc_constraints(start='2013:001',
                                            n_ccd=n_ccd,
                                            dh_heater=dh_heater,
                                            roll=roll)
-
+    if 'mups1b' in constraint_models:
+        constraints['mups1b'] = ConstraintMUPS1B(sim_inputs,
+                                             limits={'pm1thv2t': FtoC(max_pm1thv2t)},
+                                             max_dwell_ksec=max_dwell_ksec,
+                                             roll=roll)
+    if 'mups2a' in constraint_models:
+        constraints['mups2a'] = ConstraintMUPS2A(sim_inputs,
+                                             limits={'pm2thv1t': FtoC(max_pm2thv1t)},
+                                             max_dwell_ksec=max_dwell_ksec,
+                                             roll=roll)
 
     constraints_list = [constraints[x] for x in constraint_models]
     pitch_bins = np.arange(min_pitch, max_pitch, bin_pitch)
@@ -545,9 +616,9 @@ def calc_constraints2(constraints,
                       hot_dwell_temp_ratio=0.9,
                       T_cool_ratio=0.9,
                       constraint_models=('psmc', 'dpa', 'dea', 'tank', 'aca', 'fwdblkhd',
-                        'tcylaft6', 'acisfp'),
+                        'tcylaft6', 'acisfp', 'mups1b', 'mups2a'),
                       msids=('tcylaft6', '1pdeaat', '1dpamzt', '1deamzt', 'pftank2t',
-                        'aacccdpt', '4rt700t', 'acisfp_11')
+                        'aacccdpt', '4rt700t', 'acisfp_11', 'pm1thv2t', 'pm2thv1t')
                       ):
     """
     Calculate allowed dwell times coming out of perigee given a set of

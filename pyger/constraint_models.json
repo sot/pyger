@@ -88,5 +88,23 @@
         "msids": [
             "fptemp_11"
         ]
+    }, 
+    "mups1b": {
+        "state_cols": [
+            "pitch" ,
+            "roll"
+        ], 
+        "msids": [
+            "pm1thv2t" 
+        ]
+    }, 
+    "mups2a": {
+        "state_cols": [
+            "pitch" ,
+            "roll"
+        ], 
+        "msids": [
+            "pm2thv1t" 
+        ]
     }
 }
