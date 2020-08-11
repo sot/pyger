@@ -126,7 +126,8 @@ class PostPyger(object):
             panel_dict[case['msid']] = frame
             print(('Imported info for {0}'.format(case['msid'])))
                   
-        self.constraint_panel = pd.Panel(panel_dict)
+        # self.constraint_panel = pd.Panel(panel_dict)
+        self.constraint_panel = panel_dict
         self.calc_stats()
         self.get_constraint_info()
         
@@ -182,16 +183,38 @@ class PostPyger(object):
     
 
     def calc_stats(self):
-        min_max_hot_time = self.constraint_panel.minor_xs('max_hot_time').min(axis=1)
-        min_max_hot_time_msid = self.constraint_panel.minor_xs('max_hot_time').idxmin(axis=1)
+
+        msids = list(self.constraint_panel.keys())
+        datasets = list(self.constraint_panel.values())
+
+        df = np.column_stack([d['max_hot_time'] for d in datasets])
+        df = pd.DataFrame(df, columns=msids, index=self.pitch_set)
+        min_max_hot_time = df.min(axis=1)
+        min_max_hot_time_msid = df.idxmin(axis=1)
+
+        # min_max_hot_time = self.constraint_panel.minor_xs('max_hot_time').min(axis=1)
+        # min_max_hot_time_msid = self.constraint_panel.minor_xs('max_hot_time').idxmin(axis=1)
+
         self.max_hot_time = pd.DataFrame({'max_time':min_max_hot_time, 
                                           'limiting_msid':min_max_hot_time_msid})
-        
-        min_hot_dwell = self.constraint_panel.minor_xs('hot_dwell').min(axis=1)
-        min_hot_dwell_msid = self.constraint_panel.minor_xs('hot_dwell').idxmin(axis=1)
+
+
+        df = np.column_stack([d['hot_dwell'] for d in datasets])
+        df = pd.DataFrame(df, columns=msids, index=self.pitch_set)
+        min_hot_dwell = df.min(axis=1)
+        min_hot_dwell_msid = df.idxmin(axis=1)
+
+        # min_hot_dwell = self.constraint_panel.minor_xs('hot_dwell').min(axis=1)
+        # min_hot_dwell_msid = self.constraint_panel.minor_xs('hot_dwell').idxmin(axis=1)
+
         self.hot_dwell = pd.DataFrame({'heating_time':min_hot_dwell,
                                        'limiting_msid':min_hot_dwell_msid})
 
-        self.cool_dwells = self.constraint_panel.minor_xs('cool_dwell').max(axis=1)
 
+        df = np.column_stack([d['cool_dwell'] for d in datasets])
+        df = pd.DataFrame(df, columns=msids, index=self.pitch_set)
+
+        # self.cool_dwells = self.constraint_panel.minor_xs('cool_dwell').max(axis=1)
+
+        self.cool_dwells = df.max(axis=1)
 
